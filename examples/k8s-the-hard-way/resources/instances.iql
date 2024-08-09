@@ -1,0 +1,60 @@
+/*+ preflight */
+SELECT 
+    CASE 
+        WHEN COUNT(*) = {{ num_instances | int }} THEN 1 
+        ELSE 0 
+    END AS count
+FROM google.compute.instances 
+WHERE project = '{{ project }}'
+AND zone = '{{ default_zone }}'
+AND instance IN ({% for i in range(num_instances | int) %}'{{ instance_name_prefix }}-{{ loop.index }}'{% if not loop.last %}, {% endif %}{% endfor %})
+
+/*+ create */
+{% for network_interface in network_interfaces  %}
+INSERT INTO google.compute.instances 
+ (
+  zone,
+  project,
+  data__name,
+  data__machineType,
+  data__canIpForward,
+  data__deletionProtection,
+  data__scheduling,
+  data__networkInterfaces,
+  data__disks,
+  data__serviceAccounts,
+  data__tags
+ ) 
+ SELECT
+'{{ default_zone }}',
+'{{ project }}',
+'{{ instance_name_prefix }}-{{ loop.index }}',
+'{{ machine_type }}',
+true,
+false,
+'{{ scheduling | tojson }}',
+'{{ network_interface | tojson }}',
+'{{ disks | tojson }}',
+'{{ service_accounts | tojson }}',
+'{{ tags | tojson }}';
+{% endfor %}
+
+/*+ postdeploy, retries=5, retry_delay=10 */
+SELECT 
+    CASE 
+        WHEN COUNT(*) = {{ num_instances | int }} THEN 1 
+        ELSE 0 
+    END AS count
+FROM google.compute.instances 
+WHERE project = '{{ project }}'
+AND zone = '{{ default_zone }}'
+AND status = 'RUNNING'
+AND instance IN ({% for i in range(num_instances | int) %}'{{ instance_name_prefix }}-{{ loop.index }}'{% if not loop.last %}, {% endif %}{% endfor %})
+
+/*+ delete */
+{% for network_interface in network_interfaces %}
+DELETE FROM google.compute.instances 
+WHERE project = '{{ project }}'
+AND zone = '{{ default_zone }}'
+AND instance = '{{ instance_name_prefix }}-{{ loop.index }}';
+{% endfor %}

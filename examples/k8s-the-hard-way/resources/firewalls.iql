@@ -1,0 +1,33 @@
+/*+ preflight */
+SELECT COUNT(*) as count FROM google.compute.firewalls
+WHERE project = '{{ project }}'
+AND name = '{{ fw_name }}'
+
+/*+ create */
+INSERT INTO google.compute.firewalls
+(
+ project,
+ data__name,
+ data__network,
+ data__direction,
+ data__sourceRanges,
+ data__allowed
+) 
+SELECT
+ '{{ project }}',
+ '{{ fw_name}}',
+ '{{ vpc_link }}',
+ '{{ fw_direction }}',
+ '{{ fw_source_ranges }}',
+ '{{ fw_allowed }}'
+
+/*+ postdeploy, retries=5, retry_delay=10 */
+SELECT COUNT(*) as count FROM google.compute.firewalls
+WHERE project = '{{ project }}'
+AND name = '{{ fw_name }}'
+AND network = '{{ vpc_link }}'
+
+/*+ delete, retries=20, retry_delay=10 */
+DELETE FROM google.compute.firewalls
+WHERE project = '{{ project }}'
+AND firewall = '{{ fw_name }}'

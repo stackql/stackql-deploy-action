@@ -1,0 +1,35 @@
+/*+ preflight */
+SELECT COUNT(*) as count FROM google.compute.addresses
+WHERE name = '{{ address_name }}'
+AND project = '{{ project }}'
+AND region = '{{ region }}'
+
+/*+ create */
+INSERT INTO google.compute.addresses
+(
+ project,
+ region,
+ data__name
+) 
+SELECT
+'{{ project }}',
+'{{ region }}',
+'{{ address_name }}'
+
+/*+ postdeploy, retries=5, retry_delay=10 */
+SELECT COUNT(*) as count FROM google.compute.addresses
+WHERE name = '{{ address_name }}'
+AND project = '{{ project }}'
+AND region = '{{ region }}'
+
+/*+ delete */
+DELETE FROM google.compute.addresses
+WHERE address = '{{ address_name }}' AND project = '{{ project }}'
+AND region = '{{ region }}'
+
+/*+ exports */
+SELECT address
+FROM google.compute.addresses
+WHERE name = '{{ address_name }}'
+AND project = '{{ project }}'
+AND region = '{{ region }}'

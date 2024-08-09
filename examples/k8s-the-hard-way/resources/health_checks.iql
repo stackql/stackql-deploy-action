@@ -1,0 +1,45 @@
+/*+ preflight */
+SELECT COUNT(*) as count FROM google.compute.http_health_checks
+WHERE project = '{{ project }}'
+AND httpHealthCheck = '{{ health_check_name }}'
+
+/*+ create */
+INSERT INTO google.compute.http_health_checks(
+  project,
+  data__name,
+  data__checkIntervalSec,
+  data__description,
+  data__healthyThreshold,
+  data__host,
+  data__port,
+  data__requestPath,
+  data__timeoutSec,
+  data__unhealthyThreshold
+)
+SELECT
+  '{{ project }}',
+  '{{ health_check_name }}',
+   {{ health_check_interval_sec }},
+  '{{ health_check_description }}',
+   {{ health_check_healthy_threshold }},
+  '{{ health_check_host }}',
+   {{ health_check_port }},
+  '{{ health_check_path }}',
+   {{ health_check_timeout_sec }},
+   {{ health_check_unhealthy_threshold }}
+
+/*+ postdeploy, retries=5, retry_delay=10 */
+SELECT COUNT(*) as count FROM google.compute.http_health_checks
+WHERE project = '{{ project }}'
+AND httpHealthCheck = '{{ health_check_name }}'
+
+/*+ delete, retries=20, retry_delay=10 */
+DELETE FROM google.compute.http_health_checks
+WHERE project = '{{ project }}'
+AND httpHealthCheck = '{{ health_check_name }}'
+
+/*+ exports */
+SELECT selfLink as health_check_link
+FROM google.compute.http_health_checks
+WHERE project = '{{ project }}'
+AND httpHealthCheck = '{{ health_check_name }}'

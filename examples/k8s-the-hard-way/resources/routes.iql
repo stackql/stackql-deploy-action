@@ -1,0 +1,45 @@
+/*+ preflight */
+SELECT 
+    CASE 
+        WHEN COUNT(*) = {{ num_routes | int }} THEN 1 
+        ELSE 0 
+    END AS count
+FROM google.compute.routes
+WHERE project = '{{ project }}'
+AND route IN ({% for i in range(num_routes | int) %}'{{ route_name_prefix }}-{{ loop.index }}'{% if not loop.last %}, {% endif %}{% endfor %})
+
+/*+ create */
+{% for route in route_data %}
+INSERT INTO google.compute.routes(
+  project,
+  data__destRange,
+  data__name,
+  data__network,
+  data__nextHopIp,
+  data__priority
+)
+SELECT
+  '{{ project }}',
+  '{{ route.dest_range }}',
+  '{{ route_name_prefix }}-{{ loop.index }}',
+  '{{ vpc_link }}',
+  '{{ route.next_hop_ip }}',
+   {{ route_priority }};
+{% endfor %} 
+
+/*+ postdeploy, retries=5, retry_delay=10 */
+SELECT 
+    CASE 
+        WHEN COUNT(*) = {{ num_routes | int }} THEN 1 
+        ELSE 0 
+    END AS count
+FROM google.compute.routes
+WHERE project = '{{ project }}'
+AND route IN ({% for i in range(num_routes | int) %}'{{ route_name_prefix }}-{{ loop.index }}'{% if not loop.last %}, {% endif %}{% endfor %})
+
+/*+ delete, retries=20, retry_delay=10 */
+{% for route in route_data %}
+DELETE FROM google.compute.routes
+WHERE project = '{{ project }}'
+AND route = '{{ route_name_prefix }}-{{ loop.index }}';
+{% endfor %}

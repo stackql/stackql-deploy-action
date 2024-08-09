@@ -1,0 +1,54 @@
+/*+ preflight */
+SELECT COUNT(*) as count FROM google.compute.subnetworks
+WHERE subnetwork = '{{ subnet_name }}'
+AND project = '{{ project }}'
+AND region = '{{ region }}'
+AND network = '{{ vpc_link }}'
+
+/*+ create */
+INSERT INTO google.compute.subnetworks
+(
+ project,
+ region,
+ data__name,
+ data__network,
+ data__ipCidrRange,
+ data__privateIpGoogleAccess
+) 
+SELECT
+'{{ project }}',
+'{{ region }}',
+'{{ subnet_name }}',
+'{{ vpc_link }}',
+'{{ ip_cidr_range }}',
+true
+
+/*+ update */
+UPDATE google.compute.subnetworks
+SET
+data__name = '{{ subnet_name }}',
+data__network = '{{ vpc_link }}',
+data__ipCidrRange = '{{ ip_cidr_range }}',
+data__privateIpGoogleAccess = true
+WHERE subnetwork = '{{ subnet_name }}' 
+AND project = '{{ project }}'
+AND region = '{{ region }}'
+
+/*+ postdeploy, retries=5, retry_delay=10 */
+SELECT COUNT(*) as count FROM google.compute.subnetworks_usable
+WHERE project = '{{ project }}'
+AND subnetwork = 'https://www.googleapis.com/compute/v1/projects/{{ project }}/regions/{{ region }}/subnetworks/{{ subnet_name }}'
+
+/*+ delete */
+DELETE FROM google.compute.subnetworks
+WHERE subnetwork = '{{ subnet_name }}' AND project = '{{ project }}'
+AND region = '{{ region }}'
+
+/*+ exports */
+SELECT 
+name as subnet_name,
+selfLink as subnet_link
+FROM google.compute.subnetworks
+WHERE subnetwork = '{{ subnet_name }}'
+AND project = '{{ project }}'
+AND region = '{{ region }}'

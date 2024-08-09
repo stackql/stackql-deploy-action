@@ -1,0 +1,42 @@
+/*+ preflight */
+SELECT COUNT(*) as count FROM google.compute.target_pools
+WHERE project = '{{ project }}'
+  AND region = '{{ region }}'
+  AND targetPool = '{{ target_pool_name }}'
+
+/*+ create */
+INSERT INTO google.compute.target_pools(
+  project,
+  region,
+  data__name,
+  data__healthChecks,
+  data__instances,
+  data__sessionAffinity
+)
+SELECT
+  '{{ project }}',
+  '{{ region }}',
+  '{{ target_pool_name }}',
+  '{{ target_pool_health_checks }}',
+  '{{ target_pool_instances }}',
+  '{{ target_pool_session_affinity }}'
+ 
+/*+ postdeploy, retries=5, retry_delay=10 */
+SELECT COUNT(*) as count FROM google.compute.target_pools
+WHERE project = '{{ project }}'
+  AND region = '{{ region }}'
+  AND targetPool = '{{ target_pool_name }}'
+
+/*+ delete, retries=20, retry_delay=10 */
+DELETE FROM google.compute.target_pools
+WHERE project = '{{ project }}'
+  AND region = '{{ region }}'
+  AND targetPool = '{{ target_pool_name }}'
+
+/*+ exports */
+SELECT 
+selfLink as target_pool_link
+FROM google.compute.target_pools
+WHERE targetPool = '{{ target_pool_name }}'
+AND project = '{{ project }}'
+AND region = '{{ region }}'

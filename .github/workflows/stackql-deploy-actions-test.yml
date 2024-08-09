@@ -1,0 +1,24 @@
+name: Test StackQL Deploy Action
+
+on:
+  push:
+    branches:
+      - main
+jobs:
+  stackql-actions-test:
+    name: StackQL Actions Test
+    runs-on: ubuntu-latest
+    env:
+      GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4.1.7
+
+      - name: Run StackQL Deploy Action
+        uses: ./
+        with:
+          command: 'test'
+          stack_dir: 'examples/k8s-the-hard-way'
+          stack_env: 'dev'
+          env_vars: 'GOOGLE_PROJECT=stackql-k8s-the-hard-way-demo'

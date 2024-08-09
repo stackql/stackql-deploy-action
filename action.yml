@@ -1,0 +1,84 @@
+name: 'stackql-deploy'
+description: 'Deploy and test stacks using stackql-deploy'
+inputs:
+  command:
+    description: 'stackql-deploy command to run (`build` or `test`)'
+    required: true
+  stack_dir:
+    description: 'repo directory containing `stackql_manifest.yml` and `resources` dir'
+    required: true
+  stack_env:
+    description: 'environment to deploy or test (e.g., `dev`, `prod`)'
+    required: true
+  env_vars:
+    description: 'environment variables or secrets imported into a stack (format: `KEY=value,KEY2=value2`)'
+    required: false
+  env_file:
+    description: 'environment variables sourced from a file'
+    required: false
+  show_queries:
+    description: 'show queries run in the output logs'
+    required: false
+  log_level:
+    description: 'set the logging level (`INFO` or `DEBUG`, defaults to `INFO`)'
+    required: false    
+  dry_run:
+    description: 'perform a dry run of the operation'
+    required: false
+  custom_registry:
+    description: 'custom registry URL to be used for stackql'
+    required: false
+  on_failure:
+    description: 'action on failure'
+    required: false        
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Install Python
+      uses: actions/setup-python@v5.1.1
+      with:
+        python-version: '3.10'  
+
+    - name: Install stackql-deploy
+      shell: bash
+      run: pip install -q stackql-deploy pyyaml || { echo "pip install failed"; exit 1; }
+
+    - name: Run stackql-deploy
+      shell: bash
+      run: |
+        ENV_OPTS=""
+        if [ -n "${{ inputs.env_vars }}" ]; then
+          IFS=',' read -r -a env_array <<< "${{ inputs.env_vars }}"
+          for env_var in "${env_array[@]}"; do
+            ENV_OPTS+=" -e $env_var"
+          done
+        fi
+
+        STACKQL_DEPLOY_CMD="stackql-deploy ${{ inputs.command }} ${{ inputs.stack_dir }} ${{ inputs.stack_env }}"
+
+        if [ -n "${{ inputs.env_file }}" ]; then
+          STACKQL_DEPLOY_CMD+=" --env-file ${{ inputs.env_file }}"
+        fi
+        if [ "${{ inputs.show_queries }}" == "true" ]; then
+          STACKQL_DEPLOY_CMD+=" --show-queries"
+        fi
+        if [ -n "${{ inputs.log_level }}" ]; then
+          STACKQL_DEPLOY_CMD+=" --log-level ${{ inputs.log_level }}"
+        fi
+        if [ "${{ inputs.dry_run }}" == "true" ]; then
+          STACKQL_DEPLOY_CMD+=" --dry-run"
+        fi
+        if [ -n "${{ inputs.custom_registry }}" ]; then
+          STACKQL_DEPLOY_CMD+=" --custom-registry ${{ inputs.custom_registry }}"
+        fi
+        if [ -n "${{ inputs.on_failure }}" ]; then
+          STACKQL_DEPLOY_CMD+=" --on-failure ${{ inputs.on_failure }}"
+        fi
+
+        echo "executing: $STACKQL_DEPLOY_CMD $ENV_OPTS"
+        $STACKQL_DEPLOY_CMD $ENV_OPTS
+
+branding:
+  icon: 'server'
+  color: 'blue'
