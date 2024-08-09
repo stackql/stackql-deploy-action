@@ -1,4 +1,4 @@
-[![StackQL Deploy Actions Test](https://github.com/stackql/stackql-deploy/actions/workflows/stackql-deploy-actions-test.yml/badge.svg)](https://github.com/stackql/stackql-deploy/actions/workflows/stackql-deploy-actions-test.yml)
+[![StackQL Deploy Actions Test](https://github.com/stackql/stackql-deploy-action/actions/workflows/stackql-deploy-actions-test.yml/badge.svg)](https://github.com/stackql/stackql-deploy-action/actions/workflows/stackql-deploy-actions-test.yml)
 
 # stackql-deploy
 Github Action to execute `stackql-deploy` to deploy or test a stack.  [`stackql-deploy`](https://github.com/stackql/stackql-deploy) is a declarative, state-file-less IaC framework, based upon [`stackql`](https://github.com/stackql/stackql) queries.
@@ -40,7 +40,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Deploy a Stack
-        uses: stackql/setup-deploy@v1.0.0
+        uses: stackql/setup-deploy@v1.0.1
         with:
           command: 'build'
           stack-dir: 'examples/k8s-the-hard-way'
@@ -53,7 +53,7 @@ this example shows how to test stack for a given environment:
 ```yaml
 ...
       - name: Test a Stack
-        uses: stackql/setup-deploy@v1.0.0
+        uses: stackql/setup-deploy@v1.0.1
         with:
           command: 'test'
           stack-dir: 'examples/k8s-the-hard-way'
