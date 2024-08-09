@@ -1,5 +1,5 @@
-[![StackQL](https://stackql.io/img/stackql-logo-bold.png)](https://github.com/stackql/stackql)
 [![StackQL Deploy Actions Test](https://github.com/stackql/stackql-deploy-action/actions/workflows/stackql-deploy-actions-test.yml/badge.svg)](https://github.com/stackql/stackql-deploy-action/actions/workflows/stackql-deploy-actions-test.yml)
+[![StackQL](https://stackql.io/img/stackql-logo-bold.png)](https://github.com/stackql/stackql)
 
 # stackql-deploy
 Github Action to execute `stackql-deploy` to deploy or test a stack.  [`stackql-deploy`](https://github.com/stackql/stackql-deploy) is a declarative, state-file-less IaC framework, based upon [`stackql`](https://github.com/stackql/stackql) queries.
