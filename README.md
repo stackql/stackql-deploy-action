@@ -41,7 +41,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Deploy a Stack
-        uses: stackql/stackql-deploy-action@v1.0.1
+        uses: stackql/stackql-deploy-action@v1.0.2
         with:
           command: 'build'
           stack_dir: 'examples/k8s-the-hard-way'
@@ -53,7 +53,7 @@ this example shows how to test stack for a given environment:
 ```yaml
 ...
       - name: Test a Stack
-        uses: stackql/stackql-deploy-action@v1.0.1
+        uses: stackql/stackql-deploy-action@v1.0.2
         with:
           command: 'test'
           stack_dir: 'examples/k8s-the-hard-way'

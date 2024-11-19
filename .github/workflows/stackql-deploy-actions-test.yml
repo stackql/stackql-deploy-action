@@ -22,3 +22,4 @@ jobs:
           stack_dir: 'examples/k8s-the-hard-way'
           stack_env: 'dev'
           env_vars: 'GOOGLE_PROJECT=stackql-k8s-the-hard-way-demo'
+          log_level: 'debug'
