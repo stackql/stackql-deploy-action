@@ -15,6 +15,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4.1.7
 
+      - name: StackQL Deploy Info
+        uses: ./
+        with:
+          command: 'info'
+
       - name: Run StackQL Deploy Action
         uses: ./
         with:
