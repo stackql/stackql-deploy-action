@@ -44,11 +44,10 @@ jobs:
         uses: stackql/stackql-deploy-action@v1.0.1
         with:
           command: 'build'
-          stack-dir: 'examples/k8s-the-hard-way'
-          stack-env: 'dev'
-          env-vars: 'GOOGLE_PROJECT=stackql-k8s-the-hard-way-demo'
+          stack_dir: 'examples/k8s-the-hard-way'
+          stack_env: 'dev'
+          env_vars: 'GOOGLE_PROJECT=stackql-k8s-the-hard-way-demo'
 ```
-
 this example shows how to test stack for a given environment:
 
 ```yaml
@@ -57,7 +56,7 @@ this example shows how to test stack for a given environment:
         uses: stackql/stackql-deploy-action@v1.0.1
         with:
           command: 'test'
-          stack-dir: 'examples/k8s-the-hard-way'
-          stack-env: 'sit'
-          env-vars: 'GOOGLE_PROJECT=stackql-k8s-the-hard-way-demo'
+          stack_dir: 'examples/k8s-the-hard-way'
+          stack_env: 'sit'
+          env_vars: 'GOOGLE_PROJECT=stackql-k8s-the-hard-way-demo'
 ```
