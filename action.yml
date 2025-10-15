@@ -103,9 +103,27 @@ runs:
         fi
 
         echo "executing: $STACKQL_DEPLOY_CMD $ENV_OPTS"
+        
+        # Run command and capture exit code
+        set +e
         $STACKQL_DEPLOY_CMD $ENV_OPTS
+        EXIT_CODE=$?
+        set -e
+        
+        # Handle failure
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "## ❌ StackQL Deploy ${{ inputs.command }} Failed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment:** ${{ inputs.stack_env }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Stack Directory:** ${{ inputs.stack_dir }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Please check the logs above for details." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "_Failed at $(date -u +'%Y-%m-%d %H:%M:%S UTC')_" >> $GITHUB_STEP_SUMMARY
+          exit $EXIT_CODE
+        fi
 
-        # Capture outputs if output file was specified
+        # Capture outputs if output file was specified (success path)
         if [ -n "$OUTPUT_FILE" ] && [ -f "$OUTPUT_FILE" ]; then
           # Read the JSON content
           DEPLOYMENT_OUTPUTS=$(cat "$OUTPUT_FILE")
