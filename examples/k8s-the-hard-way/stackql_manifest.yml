@@ -36,187 +36,187 @@ resources:
   exports:
     - subnet_name    
     - subnet_link            
-- name: public_address
-  props:
-  - name: address_name
-    value: "{{ stack_name }}-{{ stack_env }}-{{ region }}-ip-addr"  
-  exports:
-  - address    
-- name: controller_instances
-  file: instances.iql
-  props:
-  - name: num_instances
-    value: 3
-  - name: instance_name_prefix
-    value: "{{ stack_name }}-{{ stack_env }}-controller"
-  - name: disks
-    value:
-    - autoDelete: true
-      boot: true
-      initializeParams:
-        diskSizeGb: 10
-        sourceImage: https://compute.googleapis.com/compute/v1/projects/ubuntu-os-cloud/global/images/family/ubuntu-2004-lts
-      mode: READ_WRITE
-      type: PERSISTENT
-  - name: machine_type
-    value: "https://compute.googleapis.com/compute/v1/projects/{{ project }}/zones/{{ default_zone }}/machineTypes/f1-micro"          
-  - name: scheduling
-    value: {automaticRestart: true}
-  - name: tags
-    value: {items: ["{{ stack_name }}", "controller"]}
-  - name: service_accounts
-    value:
-    - email: default
-      scopes:
-        - https://www.googleapis.com/auth/compute
-        - https://www.googleapis.com/auth/devstorage.read_only
-        - https://www.googleapis.com/auth/logging.write
-        - https://www.googleapis.com/auth/monitoring
-        - https://www.googleapis.com/auth/service.management.readonly
-        - https://www.googleapis.com/auth/servicecontrol
-  - name: network_interfaces
-    values:
-      dev:
-        value: 
-        - {networkIP: "10.240.0.10", subnetwork: "{{ subnet_link }}", accessConfigs: [{name: external-nat, type: ONE_TO_ONE_NAT}]}              
-        - {networkIP: "10.240.0.11", subnetwork: "{{ subnet_link }}", accessConfigs: [{name: external-nat, type: ONE_TO_ONE_NAT}]}              
-        - {networkIP: "10.240.0.12", subnetwork: "{{ subnet_link }}", accessConfigs: [{name: external-nat, type: ONE_TO_ONE_NAT}]}              
-- name: worker_instances
-  file: instances.iql
-  props:
-  - name: num_instances
-    value: 3
-  - name: instance_name_prefix
-    value: "{{ stack_name }}-{{ stack_env }}-worker"
-  - name: disks
-    value:
-    - autoDelete: true
-      boot: true
-      initializeParams:
-        diskSizeGb: 10
-        sourceImage: https://compute.googleapis.com/compute/v1/projects/ubuntu-os-cloud/global/images/family/ubuntu-2004-lts
-      mode: READ_WRITE
-      type: PERSISTENT
-  - name: machine_type
-    value: "https://compute.googleapis.com/compute/v1/projects/{{ project }}/zones/{{ default_zone }}/machineTypes/f1-micro"          
-  - name: scheduling
-    value: {automaticRestart: true}
-  - name: tags
-    value: {items: ["{{ stack_name }}", "worker"]}
-  - name: service_accounts
-    value:
-    - email: default
-      scopes:
-        - https://www.googleapis.com/auth/compute
-        - https://www.googleapis.com/auth/devstorage.read_only
-        - https://www.googleapis.com/auth/logging.write
-        - https://www.googleapis.com/auth/monitoring
-        - https://www.googleapis.com/auth/service.management.readonly
-        - https://www.googleapis.com/auth/servicecontrol
-  - name: network_interfaces
-    values:
-      dev:
-        value: 
-        - {networkIP: "10.240.0.20", subnetwork: "{{ subnet_link }}", accessConfigs: [{name: external-nat, type: ONE_TO_ONE_NAT}]}              
-        - {networkIP: "10.240.0.21", subnetwork: "{{ subnet_link }}", accessConfigs: [{name: external-nat, type: ONE_TO_ONE_NAT}]}              
-        - {networkIP: "10.240.0.22", subnetwork: "{{ subnet_link }}", accessConfigs: [{name: external-nat, type: ONE_TO_ONE_NAT}]} 
-- name: health_checks
-  props:
-  - name: health_check_name
-    value: kubernetes
-  - name: health_check_interval_sec
-    value: 5
-  - name: health_check_description
-    value: Kubernetes Health Check
-  - name: health_check_timeout_sec
-    value: 5
-  - name: health_check_healthy_threshold
-    value: 2
-  - name: health_check_unhealthy_threshold
-    value: 2
-  - name: health_check_host
-    value: kubernetes.default.svc.cluster.local
-  - name: health_check_port
-    value: 80
-  - name: health_check_path
-    value: /healthz
-  exports:
-    - health_check_link
-- name: internal_firewall
-  file: firewalls.iql
-  props:
-  - name: fw_name
-    value: "{{ stack_name }}-{{ stack_env }}-allow-internal-fw"
-  - name: fw_direction
-    value: INGRESS
-  - name: fw_source_ranges
-    values:
-      dev:
-        value: ["10.240.0.0/24", "10.200.0.0/16"]
-  - name: fw_allowed
-    value: [{IPProtocol: tcp}, {IPProtocol: udp}, {IPProtocol: icmp}]
-- name: external_firewall
-  file: firewalls.iql
-  props:
-  - name: fw_name
-    value: "{{ stack_name }}-{{ stack_env }}-allow-external-fw"
-  - name: fw_direction
-    value: INGRESS
-  - name: fw_source_ranges
-    values:
-      dev:
-        value: ["0.0.0.0/0"]
-  - name: fw_allowed
-    value: [{IPProtocol: tcp, ports: ["22"]}, {IPProtocol: tcp, ports: ["6443"]},{IPProtocol: icmp}]
-- name: health_check_firewall
-  file: firewalls.iql
-  props:
-  - name: fw_name
-    value: "{{ stack_name }}-{{ stack_env }}-allow-health-check-fw"
-  - name: fw_direction
-    value: INGRESS
-  - name: fw_source_ranges
-    values:
-      dev:
-        value: ["209.85.152.0/22", "209.85.204.0/22", "35.191.0.0/16"]
-  - name: fw_allowed
-    value: [{IPProtocol: tcp}]
-- name: get_controller_instances
-  type: query
-  exports:
-    - controller_instances
-- name: target_pool
-  props:
-  - name: target_pool_name
-    value: "{{ stack_name }}-{{ stack_env }}-target-pool"
-  - name: target_pool_session_affinity
-    value: NONE
-  - name: target_pool_health_checks
-    value: ["{{ health_check_link }}"]
-  - name: target_pool_instances
-    value: "{{ controller_instances }}"
-  exports:
-    - target_pool_link
-- name: forwarding_rule
-  props:
-  - name: forwarding_rule_name
-    value: "{{ stack_name }}-{{ stack_env }}-forwarding-rule"
-  - name: forwarding_rule_load_balancing_scheme
-    value: EXTERNAL
-  - name: forwarding_rule_port_range
-    value: 6443
-- name: routes
-  props:
-  - name: num_routes
-    value: 3
-  - name: route_name_prefix
-    value: "{{ stack_name }}-{{ stack_env }}-route"
-  - name: route_priority
-    value: 1000
-  - name: route_data
-    values:
-      dev:
-        value: 
-        - {dest_range: "10.200.0.0/24", next_hop_ip: "10.240.0.20"}              
-        - {dest_range: "10.200.1.0/24", next_hop_ip: "10.240.0.21"}              
-        - {dest_range: "10.200.2.0/24", next_hop_ip: "10.240.0.22"}              
+# - name: public_address
+#   props:
+#   - name: address_name
+#     value: "{{ stack_name }}-{{ stack_env }}-{{ region }}-ip-addr"  
+#   exports:
+#   - address    
+# - name: controller_instances
+#   file: instances.iql
+#   props:
+#   - name: num_instances
+#     value: 3
+#   - name: instance_name_prefix
+#     value: "{{ stack_name }}-{{ stack_env }}-controller"
+#   - name: disks
+#     value:
+#     - autoDelete: true
+#       boot: true
+#       initializeParams:
+#         diskSizeGb: 10
+#         sourceImage: https://compute.googleapis.com/compute/v1/projects/ubuntu-os-cloud/global/images/family/ubuntu-2004-lts
+#       mode: READ_WRITE
+#       type: PERSISTENT
+#   - name: machine_type
+#     value: "https://compute.googleapis.com/compute/v1/projects/{{ project }}/zones/{{ default_zone }}/machineTypes/f1-micro"          
+#   - name: scheduling
+#     value: {automaticRestart: true}
+#   - name: tags
+#     value: {items: ["{{ stack_name }}", "controller"]}
+#   - name: service_accounts
+#     value:
+#     - email: default
+#       scopes:
+#         - https://www.googleapis.com/auth/compute
+#         - https://www.googleapis.com/auth/devstorage.read_only
+#         - https://www.googleapis.com/auth/logging.write
+#         - https://www.googleapis.com/auth/monitoring
+#         - https://www.googleapis.com/auth/service.management.readonly
+#         - https://www.googleapis.com/auth/servicecontrol
+#   - name: network_interfaces
+#     values:
+#       dev:
+#         value: 
+#         - {networkIP: "10.240.0.10", subnetwork: "{{ subnet_link }}", accessConfigs: [{name: external-nat, type: ONE_TO_ONE_NAT}]}              
+#         - {networkIP: "10.240.0.11", subnetwork: "{{ subnet_link }}", accessConfigs: [{name: external-nat, type: ONE_TO_ONE_NAT}]}              
+#         - {networkIP: "10.240.0.12", subnetwork: "{{ subnet_link }}", accessConfigs: [{name: external-nat, type: ONE_TO_ONE_NAT}]}              
+# - name: worker_instances
+#   file: instances.iql
+#   props:
+#   - name: num_instances
+#     value: 3
+#   - name: instance_name_prefix
+#     value: "{{ stack_name }}-{{ stack_env }}-worker"
+#   - name: disks
+#     value:
+#     - autoDelete: true
+#       boot: true
+#       initializeParams:
+#         diskSizeGb: 10
+#         sourceImage: https://compute.googleapis.com/compute/v1/projects/ubuntu-os-cloud/global/images/family/ubuntu-2004-lts
+#       mode: READ_WRITE
+#       type: PERSISTENT
+#   - name: machine_type
+#     value: "https://compute.googleapis.com/compute/v1/projects/{{ project }}/zones/{{ default_zone }}/machineTypes/f1-micro"          
+#   - name: scheduling
+#     value: {automaticRestart: true}
+#   - name: tags
+#     value: {items: ["{{ stack_name }}", "worker"]}
+#   - name: service_accounts
+#     value:
+#     - email: default
+#       scopes:
+#         - https://www.googleapis.com/auth/compute
+#         - https://www.googleapis.com/auth/devstorage.read_only
+#         - https://www.googleapis.com/auth/logging.write
+#         - https://www.googleapis.com/auth/monitoring
+#         - https://www.googleapis.com/auth/service.management.readonly
+#         - https://www.googleapis.com/auth/servicecontrol
+#   - name: network_interfaces
+#     values:
+#       dev:
+#         value: 
+#         - {networkIP: "10.240.0.20", subnetwork: "{{ subnet_link }}", accessConfigs: [{name: external-nat, type: ONE_TO_ONE_NAT}]}              
+#         - {networkIP: "10.240.0.21", subnetwork: "{{ subnet_link }}", accessConfigs: [{name: external-nat, type: ONE_TO_ONE_NAT}]}              
+#         - {networkIP: "10.240.0.22", subnetwork: "{{ subnet_link }}", accessConfigs: [{name: external-nat, type: ONE_TO_ONE_NAT}]} 
+# - name: health_checks
+#   props:
+#   - name: health_check_name
+#     value: kubernetes
+#   - name: health_check_interval_sec
+#     value: 5
+#   - name: health_check_description
+#     value: Kubernetes Health Check
+#   - name: health_check_timeout_sec
+#     value: 5
+#   - name: health_check_healthy_threshold
+#     value: 2
+#   - name: health_check_unhealthy_threshold
+#     value: 2
+#   - name: health_check_host
+#     value: kubernetes.default.svc.cluster.local
+#   - name: health_check_port
+#     value: 80
+#   - name: health_check_path
+#     value: /healthz
+#   exports:
+#     - health_check_link
+# - name: internal_firewall
+#   file: firewalls.iql
+#   props:
+#   - name: fw_name
+#     value: "{{ stack_name }}-{{ stack_env }}-allow-internal-fw"
+#   - name: fw_direction
+#     value: INGRESS
+#   - name: fw_source_ranges
+#     values:
+#       dev:
+#         value: ["10.240.0.0/24", "10.200.0.0/16"]
+#   - name: fw_allowed
+#     value: [{IPProtocol: tcp}, {IPProtocol: udp}, {IPProtocol: icmp}]
+# - name: external_firewall
+#   file: firewalls.iql
+#   props:
+#   - name: fw_name
+#     value: "{{ stack_name }}-{{ stack_env }}-allow-external-fw"
+#   - name: fw_direction
+#     value: INGRESS
+#   - name: fw_source_ranges
+#     values:
+#       dev:
+#         value: ["0.0.0.0/0"]
+#   - name: fw_allowed
+#     value: [{IPProtocol: tcp, ports: ["22"]}, {IPProtocol: tcp, ports: ["6443"]},{IPProtocol: icmp}]
+# - name: health_check_firewall
+#   file: firewalls.iql
+#   props:
+#   - name: fw_name
+#     value: "{{ stack_name }}-{{ stack_env }}-allow-health-check-fw"
+#   - name: fw_direction
+#     value: INGRESS
+#   - name: fw_source_ranges
+#     values:
+#       dev:
+#         value: ["209.85.152.0/22", "209.85.204.0/22", "35.191.0.0/16"]
+#   - name: fw_allowed
+#     value: [{IPProtocol: tcp}]
+# - name: get_controller_instances
+#   type: query
+#   exports:
+#     - controller_instances
+# - name: target_pool
+#   props:
+#   - name: target_pool_name
+#     value: "{{ stack_name }}-{{ stack_env }}-target-pool"
+#   - name: target_pool_session_affinity
+#     value: NONE
+#   - name: target_pool_health_checks
+#     value: ["{{ health_check_link }}"]
+#   - name: target_pool_instances
+#     value: "{{ controller_instances }}"
+#   exports:
+#     - target_pool_link
+# - name: forwarding_rule
+#   props:
+#   - name: forwarding_rule_name
+#     value: "{{ stack_name }}-{{ stack_env }}-forwarding-rule"
+#   - name: forwarding_rule_load_balancing_scheme
+#     value: EXTERNAL
+#   - name: forwarding_rule_port_range
+#     value: 6443
+# - name: routes
+#   props:
+#   - name: num_routes
+#     value: 3
+#   - name: route_name_prefix
+#     value: "{{ stack_name }}-{{ stack_env }}-route"
+#   - name: route_priority
+#     value: 1000
+#   - name: route_data
+#     values:
+#       dev:
+#         value: 
+#         - {dest_range: "10.200.0.0/24", next_hop_ip: "10.240.0.20"}              
+#         - {dest_range: "10.200.1.0/24", next_hop_ip: "10.240.0.21"}              
+#         - {dest_range: "10.200.2.0/24", next_hop_ip: "10.240.0.22"}              
