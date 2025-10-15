@@ -116,11 +116,15 @@ runs:
           echo "EOF" >> $GITHUB_OUTPUT
         
           # Add to job summary with formatted output
-          echo "📦 StackQL Deploy ${{ inputs.command }}:" >> $GITHUB_STEP_SUMMARY
-          
+          echo "## 📦 StackQL Deploy ${{ inputs.command }}:" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
           # Parse and display each key-value pair
-          echo "$DEPLOYMENT_OUTPUTS" | jq -r 'to_entries[] | "\(.key): \(.value)"' >> $GITHUB_STEP_SUMMARY
-          
+          echo "$DEPLOYMENT_OUTPUTS" | jq -r 'to_entries[] | "**\(.key):** \(.value)"' >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          echo "_Completed at $(date -u +'%Y-%m-%d %H:%M:%S UTC')_" >> $GITHUB_STEP_SUMMARY
+
           echo "Deployment outputs captured successfully"
         fi
 
