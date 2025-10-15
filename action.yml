@@ -30,23 +30,42 @@ inputs:
     required: false
   on_failure:
     description: 'action on failure'
-    required: false        
+    required: false
+  show_info:
+    description: 'show stackql-deploy info output'
+    required: false
+  output_file:
+    description: 'output file to capture deployment outputs (JSON format)'
+    required: false
+
+outputs:
+  deployment_outputs:
+    description: 'JSON string containing all deployment outputs from stackql-deploy'
+    value: ${{ steps.stackql-deploy.outputs.deployment_outputs }}
 
 runs:
   using: 'composite'
   steps:
     - name: Install Python
-      uses: actions/setup-python@v5.1.1
+      uses: actions/setup-python@v6.0.0
       with:
-        python-version: '3.10'  
+        python-version: '3.13'  
 
     - name: Install stackql-deploy
       shell: bash
       run: pip install -q stackql-deploy pyyaml || { echo "pip install failed"; exit 1; }
 
     - name: Run stackql-deploy
+      id: stackql-deploy
       shell: bash
       run: |
+        # Show stackql-deploy info if requested
+        if [ "${{ inputs.show_info }}" == "true" ]; then
+          echo "Running stackql-deploy info..."
+          stackql-deploy info
+          echo ""
+        fi
+
         ENV_OPTS=""
         if [ -n "${{ inputs.env_vars }}" ]; then
           IFS=',' read -r -a env_array <<< "${{ inputs.env_vars }}"
@@ -75,9 +94,35 @@ runs:
         if [ -n "${{ inputs.on_failure }}" ]; then
           STACKQL_DEPLOY_CMD+=" --on-failure ${{ inputs.on_failure }}"
         fi
+        
+        # Handle output file
+        OUTPUT_FILE=""
+        if [ -n "${{ inputs.output_file }}" ]; then
+          OUTPUT_FILE="${{ inputs.output_file }}"
+          STACKQL_DEPLOY_CMD+=" --output-file $OUTPUT_FILE"
+        fi
 
         echo "executing: $STACKQL_DEPLOY_CMD $ENV_OPTS"
         $STACKQL_DEPLOY_CMD $ENV_OPTS
+
+        # Capture outputs if output file was specified
+        if [ -n "$OUTPUT_FILE" ] && [ -f "$OUTPUT_FILE" ]; then
+          # Read the JSON content
+          DEPLOYMENT_OUTPUTS=$(cat "$OUTPUT_FILE")
+          
+          # Set the outputs for the action
+          echo "deployment_outputs<<EOF" >> $GITHUB_OUTPUT
+          echo "$DEPLOYMENT_OUTPUTS" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+        
+          # Add to job summary with formatted output
+          echo "📦 StackQL Deploy ${{ inputs.command }}:" >> $GITHUB_STEP_SUMMARY
+          
+          # Parse and display each key-value pair
+          echo "$DEPLOYMENT_OUTPUTS" | jq -r 'to_entries[] | "\(.key): \(.value)"' >> $GITHUB_STEP_SUMMARY
+          
+          echo "Deployment outputs captured successfully"
+        fi
 
 branding:
   icon: 'server'

@@ -20,6 +20,11 @@ Authentication to StackQL providers is done via environment variables source fro
 - **`dry_run`** - (optional) perform a dry run of the operation
 - **`custom_registry`** - (optional) custom registry URL to be used for stackql
 - **`on_failure`** - (optional) action on failure (*not implemented yet*)
+- **`output_file`** - (optional) output file to capture deployment outputs (JSON format)
+
+## Outputs
+- **`deployment_outputs`** - JSON string containing all deployment outputs from stackql-deploy
+- **`deployment_outputs_file`** - Path to the deployment outputs file
 
 ## Examples
 
@@ -48,6 +53,53 @@ jobs:
           stack_env: 'dev'
           env_vars: 'GOOGLE_PROJECT=stackql-k8s-the-hard-way-demo'
 ```
+
+### Deploy a stack with outputs
+
+this example shows how to deploy a stack and capture outputs for use in subsequent steps:
+
+```yaml
+...
+jobs:
+  deploy:
+    name: StackQL Deploy with Outputs
+    runs-on: ubuntu-latest
+    env:
+      GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Deploy a Stack
+        id: stackql-deploy
+        uses: stackql/stackql-deploy-action@v1.0.2
+        with:
+          command: 'build'
+          stack_dir: 'examples/k8s-the-hard-way'
+          stack_env: 'prod'
+          output_file: 'deployment-outputs.json'
+          env_vars: 'GOOGLE_PROJECT=stackql-k8s-the-hard-way-demo'
+
+      - name: Use deployment outputs
+        run: |
+          echo "Deployment outputs: ${{ steps.stackql-deploy.outputs.deployment_outputs }}"
+          
+          # Parse specific values from JSON output
+          WORKSPACE_NAME=$(echo '${{ steps.stackql-deploy.outputs.deployment_outputs }}' | jq -r '.databricks_workspace_name // "N/A"')
+          echo "Workspace Name: $WORKSPACE_NAME"
+          
+          # Add to GitHub Step Summary
+          echo "## Deployment Results" >> $GITHUB_STEP_SUMMARY
+          echo "Workspace: $WORKSPACE_NAME" >> $GITHUB_STEP_SUMMARY
+
+      - name: Conditional step based on outputs
+        if: contains(steps.stackql-deploy.outputs.deployment_outputs, 'RUNNING')
+        run: echo "Workspace is running, proceeding with next steps..."
+```
+
+### Test a stack
+
 this example shows how to test stack for a given environment:
 
 ```yaml

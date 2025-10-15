@@ -1,0 +1,78 @@
+name: StackQL Deploy with Outputs Example
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Deploy with StackQL
+        id: stackql-deploy
+        uses: stackql/stackql-deploy-action@main
+        with:
+          command: 'build'
+          stack_dir: './examples/k8s-the-hard-way'
+          stack_env: 'prod'
+          output_file: 'deployment-outputs.json'
+          env_vars: 'PROJECT_ID=${{ secrets.GOOGLE_PROJECT_ID }},REGION=us-central1'
+
+      - name: Display deployment outputs
+        run: |
+          echo "Deployment completed successfully!"
+          echo "Output file: ${{ steps.stackql-deploy.outputs.deployment_outputs_file }}"
+          echo "Raw outputs: ${{ steps.stackql-deploy.outputs.deployment_outputs }}"
+
+      - name: Parse specific output values
+        run: |
+          # Parse specific values from the JSON output
+          WORKSPACE_NAME=$(echo '${{ steps.stackql-deploy.outputs.deployment_outputs }}' | jq -r '.databricks_workspace_name // "N/A"')
+          WORKSPACE_ID=$(echo '${{ steps.stackql-deploy.outputs.deployment_outputs }}' | jq -r '.databricks_workspace_id // "N/A"')
+          WORKSPACE_STATUS=$(echo '${{ steps.stackql-deploy.outputs.deployment_outputs }}' | jq -r '.databricks_workspace_status // "N/A"')
+          
+          echo "Workspace Name: $WORKSPACE_NAME"
+          echo "Workspace ID: $WORKSPACE_ID"
+          echo "Workspace Status: $WORKSPACE_STATUS"
+          
+          # Add to GitHub Summary
+          echo "## Deployment Results" >> $GITHUB_STEP_SUMMARY
+          echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Workspace Name | $WORKSPACE_NAME |" >> $GITHUB_STEP_SUMMARY
+          echo "| Workspace ID | $WORKSPACE_ID |" >> $GITHUB_STEP_SUMMARY
+          echo "| Workspace Status | $WORKSPACE_STATUS |" >> $GITHUB_STEP_SUMMARY
+
+      - name: Use outputs in another step
+        if: contains(steps.stackql-deploy.outputs.deployment_outputs, 'RUNNING')
+        run: |
+          echo "Workspace is running, proceeding with post-deployment tasks..."
+          # Add your post-deployment logic here
+
+      - name: Upload deployment outputs as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: deployment-outputs
+          path: ${{ steps.stackql-deploy.outputs.deployment_outputs_file }}
+          retention-days: 30
+
+  post-deploy:
+    needs: deploy
+    runs-on: ubuntu-latest
+    if: success()
+    steps:
+      - name: Download deployment outputs
+        uses: actions/download-artifact@v4
+        with:
+          name: deployment-outputs
+
+      - name: Process outputs in separate job
+        run: |
+          echo "Processing deployment outputs in a separate job..."
+          if [ -f "deployment-outputs.json" ]; then
+            cat deployment-outputs.json
+            # Process the outputs as needed
+          fi
