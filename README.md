@@ -43,7 +43,7 @@ jobs:
     
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Deploy a Stack
         uses: stackql/stackql-deploy-action@v1.0.2
@@ -69,7 +69,7 @@ jobs:
     
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Deploy a Stack
         id: stackql-deploy

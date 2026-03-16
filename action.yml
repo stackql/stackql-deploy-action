@@ -52,6 +52,7 @@ runs:
           echo "Installing stackql-deploy binary..."
           OS="$(uname -s)"
           ARCH="$(uname -m)"
+          echo "Detected platform: ${OS}-${ARCH}"
           case "${OS}-${ARCH}" in
             Linux-x86_64)   URL="https://bit.ly/stackql-deploy-amd64" ;;
             Linux-aarch64)  URL="https://bit.ly/stackql-deploy-arm64" ;;
@@ -64,6 +65,7 @@ runs:
               exit 1
               ;;
           esac
+          echo "Download URL: ${URL}"
 
           if [[ "$OS" == MINGW* || "$OS" == MSYS* || "$OS" == CYGWIN* ]]; then
             curl -L -o stackql-deploy.zip "$URL"
@@ -73,8 +75,8 @@ runs:
             curl -L "$URL" | tar -xz
           fi
 
-          # Make available on PATH
           chmod +x ./stackql-deploy
+          echo "Binary details: $(file ./stackql-deploy)"
           echo "${GITHUB_WORKSPACE}" >> "$GITHUB_PATH"
           export PATH="${GITHUB_WORKSPACE}:${PATH}"
 
