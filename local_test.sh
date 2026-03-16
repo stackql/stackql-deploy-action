@@ -4,7 +4,7 @@
 #   1. Run `source local_test_setup.sh` to download the stackql-deploy binary.
 #   2. Ensure AWS credentials are exported (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_SESSION_TOKEN).
 #   3. Ensure AWS_REGION is exported.
-#   4. yq v4 is installed (for the manifest update step).
+#   4. sed is available (used to update the manifest).
 
 set -euo pipefail
 
@@ -31,21 +31,21 @@ run_step "Step 1: Deploy SSM Parameter" "build"
 # Step 2: Test
 run_step "Step 2: Test SSM Parameter" "test"
 
-# Step 3: Update manifest - add an extra tag
+# Step 3: Update manifest - change the parameter value
 echo ""
 echo "========================================================================"
-echo " Step 3: Update Manifest - Add Tag"
+echo " Step 3: Update Manifest - Update SSM Parameter Value"
 echo "========================================================================"
 MANIFEST="${STACK_DIR}/stackql_manifest.yml"
-YQ_EXPR='(.resources[] | select(.name == "test_ssm_parameter") | .props[] | select(.name == "tags")).value += [{"Key": "stackql:updated", "Value": "true"}]'
-echo "executing: yq -Y \"${YQ_EXPR}\" ${MANIFEST}"
-yq -Y "${YQ_EXPR}" "${MANIFEST}" > "${MANIFEST}.tmp" && mv "${MANIFEST}.tmp" "${MANIFEST}"
+echo "executing: sed -i.bak 's/stackql-deploy-action-test-value/stackql-deploy-action-test-value-updated/' ${MANIFEST}"
+sed -i.bak 's/stackql-deploy-action-test-value/stackql-deploy-action-test-value-updated/' "${MANIFEST}"
+rm -f "${MANIFEST}.bak"
 echo ""
 echo "Updated manifest:"
 cat "${STACK_DIR}/stackql_manifest.yml"
 
 # Step 4: Redeploy with updated manifest
-run_step "Step 4: Redeploy SSM Parameter with Updated Tag" "build"
+run_step "Step 4: Redeploy SSM Parameter with Updated Value" "build"
 
 # Step 5: Test again after update
 run_step "Step 5: Test SSM Parameter (Post-Update)" "test"

@@ -21,7 +21,7 @@ resources:
       - name: type
         value: "String"
       - name: value
-        value: "stackql-deploy-action-test-value"
+        value: "stackql-deploy-action-test-value-updated"
       - name: description
         value: "Test SSM parameter for stackql-deploy-action CI"
       - name: tier

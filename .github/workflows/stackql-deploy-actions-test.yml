@@ -7,8 +7,17 @@ on:
 
 jobs:
   aws-ssm-test:
-    name: Deploy, Test, Update, and Teardown AWS SSM Parameter
-    runs-on: ubuntu-latest
+    name: "Test (${{ matrix.os }})"
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - ubuntu-24.04-arm
+          - macos-latest
+          - macos-13
+          - windows-latest
     env:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -43,25 +52,22 @@ jobs:
           log_level: 'info'
 
       # -----------------------------------------------------------------------
-      # Step 3: Update the manifest - add an extra tag
+      # Step 3: Update the manifest - change the parameter value
       # -----------------------------------------------------------------------
-      - name: Update Manifest - Add Tag
+      - name: Update Manifest - Update SSM Parameter Value
         shell: bash
         run: |
-          # Append an additional tag to the test_ssm_parameter resource tags value.
-          # yq v4 is pre-installed on ubuntu-latest runners.
-          yq -i '
-            (.resources[] | select(.name == "test_ssm_parameter") | .props[] | select(.name == "tags")).value +=
-              [{"Key": "stackql:updated", "Value": "true"}]
-          ' examples/aws-ssm-parameter/stackql_manifest.yml
+          # Update the SSM parameter value to test that a redeploy detects the change.
+          sed -i.bak 's/stackql-deploy-action-test-value/stackql-deploy-action-test-value-updated/' examples/aws-ssm-parameter/stackql_manifest.yml
+          rm -f examples/aws-ssm-parameter/stackql_manifest.yml.bak
 
           echo "Updated manifest:"
           cat examples/aws-ssm-parameter/stackql_manifest.yml
 
       # -----------------------------------------------------------------------
-      # Step 4: Redeploy with the updated manifest (tag update)
+      # Step 4: Redeploy with the updated manifest (value update)
       # -----------------------------------------------------------------------
-      - name: Redeploy SSM Parameter with Updated Tag
+      - name: Redeploy SSM Parameter with Updated Value
         uses: ./
         with:
           command: 'build'
