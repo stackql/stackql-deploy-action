@@ -5,31 +5,19 @@ on:
     branches:
       - main
 
+# Run tests sequentially to avoid race conditions on shared AWS resources.
+# Order: Linux amd64 → Linux arm64 → macOS arm → macOS Intel → Windows
+
 jobs:
-  aws-ssm-test:
-    name: "Test (${{ matrix.os }})"
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os:
-          - ubuntu-latest
-          - ubuntu-24.04-arm
-          - windows-latest
-          - macos-latest
-          - macos-26-intel
+  test-ubuntu-latest:
+    name: "Test (ubuntu-latest)"
+    runs-on: ubuntu-latest
     env:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      # -----------------------------------------------------------------------
-      # Step 1: Deploy the SSM parameter
-      # -----------------------------------------------------------------------
+      - uses: actions/checkout@v4
       - name: Deploy SSM Parameter
         uses: ./
         with:
@@ -38,10 +26,6 @@ jobs:
           stack_env: 'dev'
           env_vars: 'AWS_REGION=${{ vars.AWS_REGION }}'
           log_level: 'info'
-
-      # -----------------------------------------------------------------------
-      # Step 2: Test the deployed SSM parameter
-      # -----------------------------------------------------------------------
       - name: Test SSM Parameter
         uses: ./
         with:
@@ -50,23 +34,13 @@ jobs:
           stack_env: 'dev'
           env_vars: 'AWS_REGION=${{ vars.AWS_REGION }}'
           log_level: 'info'
-
-      # -----------------------------------------------------------------------
-      # Step 3: Update the manifest - change the parameter value
-      # -----------------------------------------------------------------------
       - name: Update Manifest - Update SSM Parameter Value
         shell: bash
         run: |
-          # Update the SSM parameter value to test that a redeploy detects the change.
           sed -i.bak 's/stackql-deploy-action-test-value/stackql-deploy-action-test-value-updated/' examples/aws-ssm-parameter/stackql_manifest.yml
           rm -f examples/aws-ssm-parameter/stackql_manifest.yml.bak
-
           echo "Updated manifest:"
           cat examples/aws-ssm-parameter/stackql_manifest.yml
-
-      # -----------------------------------------------------------------------
-      # Step 4: Redeploy with the updated manifest (value update)
-      # -----------------------------------------------------------------------
       - name: Redeploy SSM Parameter with Updated Value
         uses: ./
         with:
@@ -75,10 +49,6 @@ jobs:
           stack_env: 'dev'
           env_vars: 'AWS_REGION=${{ vars.AWS_REGION }}'
           log_level: 'info'
-
-      # -----------------------------------------------------------------------
-      # Step 5: Test again after the update
-      # -----------------------------------------------------------------------
       - name: Test SSM Parameter (Post-Update)
         uses: ./
         with:
@@ -87,10 +57,242 @@ jobs:
           stack_env: 'dev'
           env_vars: 'AWS_REGION=${{ vars.AWS_REGION }}'
           log_level: 'info'
+      - name: Teardown SSM Parameter
+        if: always()
+        uses: ./
+        with:
+          command: 'teardown'
+          stack_dir: 'examples/aws-ssm-parameter'
+          stack_env: 'dev'
+          env_vars: 'AWS_REGION=${{ vars.AWS_REGION }}'
+          log_level: 'info'
 
-      # -----------------------------------------------------------------------
-      # Step 6: Teardown - always run to avoid leaving resources behind
-      # -----------------------------------------------------------------------
+  test-ubuntu-arm:
+    name: "Test (ubuntu-24.04-arm)"
+    needs: test-ubuntu-latest
+    runs-on: ubuntu-24.04-arm
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy SSM Parameter
+        uses: ./
+        with:
+          command: 'build'
+          stack_dir: 'examples/aws-ssm-parameter'
+          stack_env: 'dev'
+          env_vars: 'AWS_REGION=${{ vars.AWS_REGION }}'
+          log_level: 'info'
+      - name: Test SSM Parameter
+        uses: ./
+        with:
+          command: 'test'
+          stack_dir: 'examples/aws-ssm-parameter'
+          stack_env: 'dev'
+          env_vars: 'AWS_REGION=${{ vars.AWS_REGION }}'
+          log_level: 'info'
+      - name: Update Manifest - Update SSM Parameter Value
+        shell: bash
+        run: |
+          sed -i.bak 's/stackql-deploy-action-test-value/stackql-deploy-action-test-value-updated/' examples/aws-ssm-parameter/stackql_manifest.yml
+          rm -f examples/aws-ssm-parameter/stackql_manifest.yml.bak
+          echo "Updated manifest:"
+          cat examples/aws-ssm-parameter/stackql_manifest.yml
+      - name: Redeploy SSM Parameter with Updated Value
+        uses: ./
+        with:
+          command: 'build'
+          stack_dir: 'examples/aws-ssm-parameter'
+          stack_env: 'dev'
+          env_vars: 'AWS_REGION=${{ vars.AWS_REGION }}'
+          log_level: 'info'
+      - name: Test SSM Parameter (Post-Update)
+        uses: ./
+        with:
+          command: 'test'
+          stack_dir: 'examples/aws-ssm-parameter'
+          stack_env: 'dev'
+          env_vars: 'AWS_REGION=${{ vars.AWS_REGION }}'
+          log_level: 'info'
+      - name: Teardown SSM Parameter
+        if: always()
+        uses: ./
+        with:
+          command: 'teardown'
+          stack_dir: 'examples/aws-ssm-parameter'
+          stack_env: 'dev'
+          env_vars: 'AWS_REGION=${{ vars.AWS_REGION }}'
+          log_level: 'info'
+
+  test-macos-arm:
+    name: "Test (macos-latest)"
+    needs: test-ubuntu-arm
+    runs-on: macos-latest
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy SSM Parameter
+        uses: ./
+        with:
+          command: 'build'
+          stack_dir: 'examples/aws-ssm-parameter'
+          stack_env: 'dev'
+          env_vars: 'AWS_REGION=${{ vars.AWS_REGION }}'
+          log_level: 'info'
+      - name: Test SSM Parameter
+        uses: ./
+        with:
+          command: 'test'
+          stack_dir: 'examples/aws-ssm-parameter'
+          stack_env: 'dev'
+          env_vars: 'AWS_REGION=${{ vars.AWS_REGION }}'
+          log_level: 'info'
+      - name: Update Manifest - Update SSM Parameter Value
+        shell: bash
+        run: |
+          sed -i.bak 's/stackql-deploy-action-test-value/stackql-deploy-action-test-value-updated/' examples/aws-ssm-parameter/stackql_manifest.yml
+          rm -f examples/aws-ssm-parameter/stackql_manifest.yml.bak
+          echo "Updated manifest:"
+          cat examples/aws-ssm-parameter/stackql_manifest.yml
+      - name: Redeploy SSM Parameter with Updated Value
+        uses: ./
+        with:
+          command: 'build'
+          stack_dir: 'examples/aws-ssm-parameter'
+          stack_env: 'dev'
+          env_vars: 'AWS_REGION=${{ vars.AWS_REGION }}'
+          log_level: 'info'
+      - name: Test SSM Parameter (Post-Update)
+        uses: ./
+        with:
+          command: 'test'
+          stack_dir: 'examples/aws-ssm-parameter'
+          stack_env: 'dev'
+          env_vars: 'AWS_REGION=${{ vars.AWS_REGION }}'
+          log_level: 'info'
+      - name: Teardown SSM Parameter
+        if: always()
+        uses: ./
+        with:
+          command: 'teardown'
+          stack_dir: 'examples/aws-ssm-parameter'
+          stack_env: 'dev'
+          env_vars: 'AWS_REGION=${{ vars.AWS_REGION }}'
+          log_level: 'info'
+
+  test-macos-intel:
+    name: "Test (macos-26-intel)"
+    needs: test-macos-arm
+    runs-on: macos-26-intel
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy SSM Parameter
+        uses: ./
+        with:
+          command: 'build'
+          stack_dir: 'examples/aws-ssm-parameter'
+          stack_env: 'dev'
+          env_vars: 'AWS_REGION=${{ vars.AWS_REGION }}'
+          log_level: 'info'
+      - name: Test SSM Parameter
+        uses: ./
+        with:
+          command: 'test'
+          stack_dir: 'examples/aws-ssm-parameter'
+          stack_env: 'dev'
+          env_vars: 'AWS_REGION=${{ vars.AWS_REGION }}'
+          log_level: 'info'
+      - name: Update Manifest - Update SSM Parameter Value
+        shell: bash
+        run: |
+          sed -i.bak 's/stackql-deploy-action-test-value/stackql-deploy-action-test-value-updated/' examples/aws-ssm-parameter/stackql_manifest.yml
+          rm -f examples/aws-ssm-parameter/stackql_manifest.yml.bak
+          echo "Updated manifest:"
+          cat examples/aws-ssm-parameter/stackql_manifest.yml
+      - name: Redeploy SSM Parameter with Updated Value
+        uses: ./
+        with:
+          command: 'build'
+          stack_dir: 'examples/aws-ssm-parameter'
+          stack_env: 'dev'
+          env_vars: 'AWS_REGION=${{ vars.AWS_REGION }}'
+          log_level: 'info'
+      - name: Test SSM Parameter (Post-Update)
+        uses: ./
+        with:
+          command: 'test'
+          stack_dir: 'examples/aws-ssm-parameter'
+          stack_env: 'dev'
+          env_vars: 'AWS_REGION=${{ vars.AWS_REGION }}'
+          log_level: 'info'
+      - name: Teardown SSM Parameter
+        if: always()
+        uses: ./
+        with:
+          command: 'teardown'
+          stack_dir: 'examples/aws-ssm-parameter'
+          stack_env: 'dev'
+          env_vars: 'AWS_REGION=${{ vars.AWS_REGION }}'
+          log_level: 'info'
+
+  test-windows:
+    name: "Test (windows-latest)"
+    needs: test-macos-intel
+    runs-on: windows-latest
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy SSM Parameter
+        uses: ./
+        with:
+          command: 'build'
+          stack_dir: 'examples/aws-ssm-parameter'
+          stack_env: 'dev'
+          env_vars: 'AWS_REGION=${{ vars.AWS_REGION }}'
+          log_level: 'info'
+      - name: Test SSM Parameter
+        uses: ./
+        with:
+          command: 'test'
+          stack_dir: 'examples/aws-ssm-parameter'
+          stack_env: 'dev'
+          env_vars: 'AWS_REGION=${{ vars.AWS_REGION }}'
+          log_level: 'info'
+      - name: Update Manifest - Update SSM Parameter Value
+        shell: bash
+        run: |
+          sed -i.bak 's/stackql-deploy-action-test-value/stackql-deploy-action-test-value-updated/' examples/aws-ssm-parameter/stackql_manifest.yml
+          rm -f examples/aws-ssm-parameter/stackql_manifest.yml.bak
+          echo "Updated manifest:"
+          cat examples/aws-ssm-parameter/stackql_manifest.yml
+      - name: Redeploy SSM Parameter with Updated Value
+        uses: ./
+        with:
+          command: 'build'
+          stack_dir: 'examples/aws-ssm-parameter'
+          stack_env: 'dev'
+          env_vars: 'AWS_REGION=${{ vars.AWS_REGION }}'
+          log_level: 'info'
+      - name: Test SSM Parameter (Post-Update)
+        uses: ./
+        with:
+          command: 'test'
+          stack_dir: 'examples/aws-ssm-parameter'
+          stack_env: 'dev'
+          env_vars: 'AWS_REGION=${{ vars.AWS_REGION }}'
+          log_level: 'info'
       - name: Teardown SSM Parameter
         if: always()
         uses: ./
