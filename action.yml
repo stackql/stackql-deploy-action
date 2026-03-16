@@ -1,15 +1,15 @@
 name: 'stackql-deploy'
-description: 'Deploy and test stacks using stackql-deploy'
+description: 'Deploy and test stacks using stackql-deploy (Rust edition)'
 inputs:
   command:
-    description: 'stackql-deploy command to run (`build` or `test`)'
+    description: 'stackql-deploy command to run (`build`, `test`, `teardown`, or `info`)'
     required: true
   stack_dir:
     description: 'repo directory containing `stackql_manifest.yml` and `resources` dir'
-    required: true
+    required: false
   stack_env:
     description: 'environment to deploy or test (e.g., `dev`, `prod`)'
-    required: true
+    required: false
   env_vars:
     description: 'environment variables or secrets imported into a stack (format: `KEY=value,KEY2=value2`)'
     required: false
@@ -20,22 +20,19 @@ inputs:
     description: 'show queries run in the output logs'
     required: false
   log_level:
-    description: 'set the logging level (`INFO` or `DEBUG`, defaults to `INFO`)'
-    required: false    
+    description: 'set the logging level (`info`, `debug`, `trace`, `warn`, or `error`, defaults to `info`)'
+    required: false
   dry_run:
     description: 'perform a dry run of the operation'
     required: false
-  custom_registry:
-    description: 'custom registry URL to be used for stackql'
-    required: false
   on_failure:
-    description: 'action on failure'
+    description: 'action on failure (`error`, `rollback`, or `ignore`, defaults to `error`)'
     required: false
   show_info:
-    description: 'show stackql-deploy info output'
+    description: 'show stackql-deploy info output before running the command'
     required: false
   output_file:
-    description: 'output file to capture deployment outputs (JSON format)'
+    description: 'output file to capture deployment outputs as JSON (supported for `build` command only)'
     required: false
 
 outputs:
@@ -46,14 +43,15 @@ outputs:
 runs:
   using: 'composite'
   steps:
-    - name: Install Python
-      uses: actions/setup-python@v6.0.0
-      with:
-        python-version: '3.13'  
-
     - name: Install stackql-deploy
       shell: bash
-      run: pip install -q stackql-deploy pyyaml || { echo "pip install failed"; exit 1; }
+      run: |
+        if ! command -v stackql-deploy &> /dev/null; then
+          echo "Installing stackql-deploy from crates.io..."
+          cargo install stackql-deploy || { echo "cargo install failed"; exit 1; }
+        else
+          echo "stackql-deploy already installed: $(stackql-deploy --version 2>/dev/null || echo 'version unknown')"
+        fi
 
     - name: Run stackql-deploy
       id: stackql-deploy
@@ -66,6 +64,13 @@ runs:
           echo ""
         fi
 
+        # Handle info command (no stack_dir/stack_env needed)
+        if [ "${{ inputs.command }}" == "info" ]; then
+          stackql-deploy info
+          exit 0
+        fi
+
+        # Build env var options (-e KEY=VALUE ...)
         ENV_OPTS=""
         if [ -n "${{ inputs.env_vars }}" ]; then
           IFS=',' read -r -a env_array <<< "${{ inputs.env_vars }}"
@@ -74,7 +79,15 @@ runs:
           done
         fi
 
-        STACKQL_DEPLOY_CMD="stackql-deploy ${{ inputs.command }} ${{ inputs.stack_dir }} ${{ inputs.stack_env }}"
+        STACKQL_DEPLOY_CMD="stackql-deploy ${{ inputs.command }}"
+
+        # Append positional args only when provided
+        if [ -n "${{ inputs.stack_dir }}" ]; then
+          STACKQL_DEPLOY_CMD+=" ${{ inputs.stack_dir }}"
+        fi
+        if [ -n "${{ inputs.stack_env }}" ]; then
+          STACKQL_DEPLOY_CMD+=" ${{ inputs.stack_env }}"
+        fi
 
         if [ -n "${{ inputs.env_file }}" ]; then
           STACKQL_DEPLOY_CMD+=" --env-file ${{ inputs.env_file }}"
@@ -88,28 +101,25 @@ runs:
         if [ "${{ inputs.dry_run }}" == "true" ]; then
           STACKQL_DEPLOY_CMD+=" --dry-run"
         fi
-        if [ -n "${{ inputs.custom_registry }}" ]; then
-          STACKQL_DEPLOY_CMD+=" --custom-registry ${{ inputs.custom_registry }}"
-        fi
         if [ -n "${{ inputs.on_failure }}" ]; then
           STACKQL_DEPLOY_CMD+=" --on-failure ${{ inputs.on_failure }}"
         fi
-        
-        # Handle output file
+
+        # --output-file is only supported by the build command
         OUTPUT_FILE=""
-        if [ -n "${{ inputs.output_file }}" ]; then
+        if [ -n "${{ inputs.output_file }}" ] && [ "${{ inputs.command }}" == "build" ]; then
           OUTPUT_FILE="${{ inputs.output_file }}"
           STACKQL_DEPLOY_CMD+=" --output-file $OUTPUT_FILE"
         fi
 
         echo "executing: $STACKQL_DEPLOY_CMD $ENV_OPTS"
-        
+
         # Run command and capture exit code
         set +e
         $STACKQL_DEPLOY_CMD $ENV_OPTS
         EXIT_CODE=$?
         set -e
-        
+
         # Handle failure
         if [ $EXIT_CODE -ne 0 ]; then
           echo "## ❌ StackQL Deploy ${{ inputs.command }} Failed" >> $GITHUB_STEP_SUMMARY
@@ -123,24 +133,18 @@ runs:
           exit $EXIT_CODE
         fi
 
-        # Capture outputs if output file was specified (success path)
+        # Capture outputs if output file was specified (build command, success path)
         if [ -n "$OUTPUT_FILE" ] && [ -f "$OUTPUT_FILE" ]; then
-          # Read the JSON content
           DEPLOYMENT_OUTPUTS=$(cat "$OUTPUT_FILE")
-          
-          # Set the outputs for the action
+
           echo "deployment_outputs<<EOF" >> $GITHUB_OUTPUT
           echo "$DEPLOYMENT_OUTPUTS" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
-        
-          # Add to job summary with formatted output
+
           echo "## 📦 StackQL Deploy ${{ inputs.command }}:" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-
-          # Parse and display each key-value pair
           echo "$DEPLOYMENT_OUTPUTS" | jq -r 'to_entries[] | "**\(.key):** \(.value)"' >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-
           echo "_Completed at $(date -u +'%Y-%m-%d %H:%M:%S UTC')_" >> $GITHUB_STEP_SUMMARY
 
           echo "Deployment outputs captured successfully"

@@ -1,0 +1,71 @@
+/*+ exists */
+SELECT count(*) as count
+FROM awscc.ssm.parameters
+WHERE region = '{{ region }}' AND
+Identifier = '{{ name }}'
+;
+/*+ create */
+INSERT INTO awscc.ssm.parameters (
+  Type,
+  Value,
+  Description,
+  Policies,
+  AllowedPattern,
+  Tier,
+  Tags,
+  DataType,
+  Name,
+  region
+)
+SELECT
+  '{{ type }}',
+  '{{ value }}',
+  '{{ description }}',
+  '{{ policies }}',
+  '{{ allowed_pattern }}',
+  '{{ tier }}',
+  '{{ tags }}',
+  '{{ data_type }}',
+  '{{ name }}',
+  '{{ region }}';
+/*+ update */
+UPDATE awscc.ssm.parameters
+SET PatchDocument = string('{{ {
+    "Type": type,
+    "Value": value,
+    "Description": description,
+    "Policies": policies,
+    "AllowedPattern": allowed_pattern,
+    "Tier": tier,
+    "Tags": tags,
+    "DataType": data_type
+} | generate_patch_document }}')
+WHERE
+  region = '{{ region }}' AND
+  Identifier = '{{ name }}';
+/*+ statecheck, retries=5, retry_delay=10 */
+SELECT count(*) as count
+FROM awscc.ssm.parameters
+WHERE
+region = '{{ region }}' AND
+Identifier = '{{ name }}'
+;
+/*+ exports */
+SELECT
+type,
+value,
+description,
+policies,
+allowed_pattern,
+tier,
+tags,
+data_type,
+name
+FROM awscc.ssm.parameters
+WHERE region = '{{ region }}' AND
+Identifier = '{{ name }}';
+/*+ delete */
+DELETE FROM awscc.ssm.parameters
+WHERE
+  Identifier = '{{ name }}' AND
+  region = '{{ region }}';
