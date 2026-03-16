@@ -9,14 +9,10 @@ globals:
     value: "{{ AWS_REGION }}"
   - name: global_tags
     value:
-      - Key: 'stackql:stack-name'
-        Value: "{{ stack_name }}"
-      - Key: 'stackql:stack-env'
-        Value: "{{ stack_env }}"
-      - Key: 'stackql:resource-name'
-        Value: "{{ resource_name }}"
+      'stackql:stack-name': "{{ stack_name }}"
+      'stackql:stack-env': "{{ stack_env }}"
+      'stackql:resource-name': "{{ resource_name }}"
 resources:
-
   - name: test_ssm_parameter
     file: aws/ssm/parameters.iql
     props:
@@ -28,16 +24,10 @@ resources:
         value: "stackql-deploy-action-test-value"
       - name: description
         value: "Test SSM parameter for stackql-deploy-action CI"
-      - name: policies
-        value: ""
-      - name: allowed_pattern
-        value: ""
       - name: tier
         value: "Standard"
       - name: tags
-        value: []
-        merge:
-          - global_tags
+        value: "{{ global_tags }}"
       - name: data_type
         value: "text"
     exports:

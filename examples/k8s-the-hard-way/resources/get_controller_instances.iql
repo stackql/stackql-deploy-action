@@ -1,6 +1,0 @@
-/*+ exports */
-SELECT JSON_GROUP_ARRAY(json_object('instance', selfLink)) as controller_instances
-FROM google.compute.instances 
-WHERE project = '{{ project }}'
-AND zone = '{{ default_zone }}'
-AND name like '%-{{ stack_env }}-controller-%'
