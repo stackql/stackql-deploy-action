@@ -13,7 +13,7 @@ Authentication to StackQL providers is done via environment variables source fro
 - **`command`** - stackql-deploy command to run (__`build`__ or __`test`__)
 - **`stack_dir`** - repo directory containing `stackql_manifest.yml` and `resources` dir
 - **`stack_env`** - environment to deploy or test (e.g., `dev`, `prod`)
-- **`env_vars`** - (optional) environment variables or secrets imported into a stack (format: __`KEY=value,KEY2=value2`__)
+- **`env_vars`** - (optional) environment variables or secrets imported into a stack. Accepts a comma-separated string (__`KEY=value,KEY2=value2`__) or a newline-separated YAML block scalar (see the multi-line example below)
 - **`env_file`** - (optional) environment variables sourced from a file 
 - **`show_queries`** - (optional) show queries run in the output logs
 - **`log_level`** - (optional) set the logging level (__`INFO`__ or __`DEBUG`__, defaults to __`INFO`__)
@@ -46,13 +46,36 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Deploy a Stack
-        uses: stackql/stackql-deploy-action@v1.0.2
+        uses: stackql/stackql-deploy-action@v2
         with:
           command: 'build'
           stack_dir: 'examples/k8s-the-hard-way'
           stack_env: 'dev'
           env_vars: 'GOOGLE_PROJECT=stackql-k8s-the-hard-way-demo'
 ```
+
+### Deploy a stack with many env vars (multi-line form)
+
+for stacks that consume many environment variables, `env_vars` also accepts a newline-separated block scalar (`|`). this is easier to read and review than a single comma-separated line:
+
+```yaml
+...
+      - name: Deploy Workspace
+        uses: stackql/stackql-deploy-action@v2
+        with:
+          command: 'build'
+          stack_dir: 'infrastructure'
+          stack_env: 'dev'
+          env_vars: |
+            AWS_REGION=ap-southeast-2
+            DATABRICKS_ACCOUNT_ID=${{ env.DATABRICKS_ACCOUNT_ID }}
+            DATABRICKS_AWS_ACCOUNT_ID=${{ env.DATABRICKS_AWS_ACCOUNT_ID }}
+            AWS_ACCOUNT_ID=${{ env.AWS_ACCOUNT_ID }}
+            GIT_REPOSITORY_URL=${{ env.GIT_REPOSITORY_URL }}
+            GIT_PAT=${{ env.GIT_PAT }}
+```
+
+the comma-separated form continues to work unchanged.
 
 ### Deploy a stack with outputs
 
@@ -73,7 +96,7 @@ jobs:
 
       - name: Deploy a Stack
         id: stackql-deploy
-        uses: stackql/stackql-deploy-action@v1.0.2
+        uses: stackql/stackql-deploy-action@v2
         with:
           command: 'build'
           stack_dir: 'examples/k8s-the-hard-way'
@@ -105,7 +128,7 @@ this example shows how to test stack for a given environment:
 ```yaml
 ...
       - name: Test a Stack
-        uses: stackql/stackql-deploy-action@v1.0.2
+        uses: stackql/stackql-deploy-action@v2
         with:
           command: 'test'
           stack_dir: 'examples/k8s-the-hard-way'

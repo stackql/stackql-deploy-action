@@ -103,10 +103,17 @@ runs:
         fi
 
         # Build env var options (-e KEY=VALUE ...)
+        # Accepts comma-separated, newline-separated (YAML `|` block), or folded (`>-`) input.
+        # Newlines are normalized to commas, then each pair is trimmed of surrounding whitespace.
         ENV_OPTS=""
         if [ -n "${{ inputs.env_vars }}" ]; then
-          IFS=',' read -r -a env_array <<< "${{ inputs.env_vars }}"
+          raw_env_vars="${{ inputs.env_vars }}"
+          raw_env_vars="${raw_env_vars//$'\n'/,}"
+          IFS=',' read -r -a env_array <<< "$raw_env_vars"
           for env_var in "${env_array[@]}"; do
+            env_var="${env_var#"${env_var%%[![:space:]]*}"}"
+            env_var="${env_var%"${env_var##*[![:space:]]}"}"
+            [ -z "$env_var" ] && continue
             ENV_OPTS+=" -e $env_var"
           done
         fi
