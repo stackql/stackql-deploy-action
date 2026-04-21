@@ -49,40 +49,48 @@ runs:
         if command -v stackql-deploy &> /dev/null; then
           echo "stackql-deploy already installed: $(stackql-deploy --version 2>/dev/null || echo 'version unknown')"
         else
-          echo "Installing stackql-deploy binary..."
           OS="$(uname -s)"
           ARCH="$(uname -m)"
-          BASE_URL="https://github.com/stackql/stackql-deploy-rs/releases/latest/download"
           echo "Detected platform: ${OS}-${ARCH}"
-          case "${OS}-${ARCH}" in
-            Linux-x86_64)   URL="${BASE_URL}/stackql-deploy-linux-x86_64.tar.gz" ;;
-            Linux-aarch64)  URL="${BASE_URL}/stackql-deploy-linux-arm64.tar.gz" ;;
-            Darwin-arm64)   URL="${BASE_URL}/stackql-deploy-macos-arm64.tar.gz" ;;
-            Darwin-x86_64)  URL="${BASE_URL}/stackql-deploy-macos-x86_64.tar.gz" ;;
-            MINGW*|MSYS*|CYGWIN*)
-                            URL="${BASE_URL}/stackql-deploy-windows-x86_64.zip" ;;
-            *)
-              echo "Unsupported platform: ${OS}-${ARCH}"
-              exit 1
-              ;;
-          esac
-          echo "Download URL: ${URL}"
 
-          if [[ "$OS" == MINGW* || "$OS" == MSYS* || "$OS" == CYGWIN* ]]; then
-            curl -L -o stackql-deploy.zip "$URL"
-            unzip -o stackql-deploy.zip
-            rm -f stackql-deploy.zip
+          if [ "$OS" = "Darwin" ]; then
+            # macOS: build from crates.io. Prebuilt macOS assets have had naming drift
+            # (universal vs arch-specific), so cargo install is the reliable path here.
+            echo "Installing stackql-deploy via cargo..."
+            cargo install stackql-deploy --locked
+            echo "${HOME}/.cargo/bin" >> "$GITHUB_PATH"
+            export PATH="${HOME}/.cargo/bin:${PATH}"
           else
-            curl -L "$URL" | tar -xz
+            echo "Installing stackql-deploy binary..."
+            BASE_URL="https://github.com/stackql/stackql-deploy-rs/releases/latest/download"
+            case "${OS}-${ARCH}" in
+              Linux-x86_64)   URL="${BASE_URL}/stackql-deploy-linux-x86_64.tar.gz" ;;
+              Linux-aarch64)  URL="${BASE_URL}/stackql-deploy-linux-arm64.tar.gz" ;;
+              MINGW*|MSYS*|CYGWIN*)
+                              URL="${BASE_URL}/stackql-deploy-windows-x86_64.zip" ;;
+              *)
+                echo "Unsupported platform: ${OS}-${ARCH}"
+                exit 1
+                ;;
+            esac
+            echo "Download URL: ${URL}"
+
+            if [[ "$OS" == MINGW* || "$OS" == MSYS* || "$OS" == CYGWIN* ]]; then
+              curl -fL -o stackql-deploy.zip "$URL"
+              unzip -o stackql-deploy.zip
+              rm -f stackql-deploy.zip
+            else
+              curl -fL "$URL" | tar -xz
+            fi
+
+            chmod +x ./stackql-deploy
+            echo "Binary details: $(file ./stackql-deploy)"
+            echo "${GITHUB_WORKSPACE}" >> "$GITHUB_PATH"
+            export PATH="${GITHUB_WORKSPACE}:${PATH}"
           fi
 
-          chmod +x ./stackql-deploy
-          echo "Binary details: $(file ./stackql-deploy)"
-          echo "${GITHUB_WORKSPACE}" >> "$GITHUB_PATH"
-          export PATH="${GITHUB_WORKSPACE}:${PATH}"
-
           echo "stackql-deploy installed:"
-          ./stackql-deploy info
+          stackql-deploy info
         fi
 
     - name: Run stackql-deploy
