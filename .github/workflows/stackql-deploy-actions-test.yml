@@ -6,7 +6,7 @@ on:
       - main
 
 # Run tests sequentially to avoid race conditions on shared AWS resources.
-# Order: Linux amd64 → Linux arm64 → macOS arm → macOS Intel → Windows
+# Order: Linux amd64 -> env_vars multi-line (Linux amd64) -> Linux arm64 -> macOS arm -> macOS Intel -> Windows
 
 jobs:
   test-ubuntu-latest:
@@ -67,9 +67,58 @@ jobs:
           env_vars: 'AWS_REGION=${{ vars.AWS_REGION }}'
           log_level: 'info'
 
+  test-env-vars-multiline:
+    name: "Test env_vars multi-line parsing (ubuntu-latest)"
+    needs: test-ubuntu-latest
+    runs-on: ubuntu-latest
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
+    steps:
+      - uses: actions/checkout@v6
+      # Uses a `|` block scalar with AWS_REGION on a non-first line so leading-whitespace
+      # on continuation entries would break the required var if the parser didn't trim.
+      # UNUSED_* pairs are noise entries the stack does not consume; their presence validates
+      # that multi-line parsing tolerates additional vars without affecting the stack.
+      - name: Deploy SSM Parameter (multi-line env_vars)
+        uses: ./
+        with:
+          command: 'build'
+          stack_dir: 'examples/aws-ssm-parameter'
+          stack_env: 'dev'
+          env_vars: |
+            UNUSED_FIRST=first
+            AWS_REGION=${{ vars.AWS_REGION }}
+            UNUSED_LAST=last
+          log_level: 'info'
+      - name: Test SSM Parameter (multi-line env_vars)
+        uses: ./
+        with:
+          command: 'test'
+          stack_dir: 'examples/aws-ssm-parameter'
+          stack_env: 'dev'
+          env_vars: |
+            UNUSED_FIRST=first
+            AWS_REGION=${{ vars.AWS_REGION }}
+            UNUSED_LAST=last
+          log_level: 'info'
+      - name: Teardown SSM Parameter (multi-line env_vars)
+        if: always()
+        uses: ./
+        with:
+          command: 'teardown'
+          stack_dir: 'examples/aws-ssm-parameter'
+          stack_env: 'dev'
+          env_vars: |
+            UNUSED_FIRST=first
+            AWS_REGION=${{ vars.AWS_REGION }}
+            UNUSED_LAST=last
+          log_level: 'info'
+
   test-ubuntu-arm:
     name: "Test (ubuntu-24.04-arm)"
-    needs: test-ubuntu-latest
+    needs: test-env-vars-multiline
     runs-on: ubuntu-24.04-arm
     env:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
