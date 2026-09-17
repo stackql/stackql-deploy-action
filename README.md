@@ -121,6 +121,8 @@ jobs:
         run: echo "Workspace is running, proceeding with next steps..."
 ```
 
+for a complete workflow that also uploads the output file as an artifact and consumes it from a separate job, see [docs/OUTPUTS.md](docs/OUTPUTS.md).
+
 ### Test a stack
 
 this example shows how to test stack for a given environment:
