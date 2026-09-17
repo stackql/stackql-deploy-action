@@ -1,17 +1,37 @@
 name: StackQL Deploy Action Test (AWS SSM)
 
 on:
-  push:
+  pull_request:
     branches:
       - main
+  workflow_dispatch:
 
-# Run tests sequentially to avoid race conditions on shared AWS resources.
-# Order: Linux amd64 -> env_vars multi-line (Linux amd64) -> Linux arm64 -> macOS arm -> macOS Intel -> Windows
+# Each job deploys its own SSM parameter: stack_env is part of the parameter name
+# (/<stack_name>/<stack_env>/test-param), so jobs within a run execute in parallel.
+# The concurrency group queues whole workflow runs so that two runs never operate
+# on the same parameters at the same time.
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
 
 jobs:
-  test-ubuntu-latest:
-    name: "Test (ubuntu-latest)"
-    runs-on: ubuntu-latest
+  test:
+    name: "Test (${{ matrix.runner }})"
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            stack_env: ci-ubuntu-amd64
+          - runner: ubuntu-24.04-arm
+            stack_env: ci-ubuntu-arm64
+          - runner: macos-latest
+            stack_env: ci-macos-arm64
+          - runner: macos-26-intel
+            stack_env: ci-macos-intel
+          - runner: windows-latest
+            stack_env: ci-windows-amd64
     env:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -23,7 +43,7 @@ jobs:
         with:
           command: 'build'
           stack_dir: 'examples/aws-ssm-parameter'
-          stack_env: 'dev'
+          stack_env: '${{ matrix.stack_env }}'
           env_vars: 'AWS_REGION=${{ vars.AWS_REGION }}'
           log_level: 'info'
       - name: Test SSM Parameter
@@ -31,7 +51,7 @@ jobs:
         with:
           command: 'test'
           stack_dir: 'examples/aws-ssm-parameter'
-          stack_env: 'dev'
+          stack_env: '${{ matrix.stack_env }}'
           env_vars: 'AWS_REGION=${{ vars.AWS_REGION }}'
           log_level: 'info'
       - name: Update Manifest - Update SSM Parameter Value
@@ -46,7 +66,7 @@ jobs:
         with:
           command: 'build'
           stack_dir: 'examples/aws-ssm-parameter'
-          stack_env: 'dev'
+          stack_env: '${{ matrix.stack_env }}'
           env_vars: 'AWS_REGION=${{ vars.AWS_REGION }}'
           log_level: 'info'
       - name: Test SSM Parameter (Post-Update)
@@ -54,7 +74,7 @@ jobs:
         with:
           command: 'test'
           stack_dir: 'examples/aws-ssm-parameter'
-          stack_env: 'dev'
+          stack_env: '${{ matrix.stack_env }}'
           env_vars: 'AWS_REGION=${{ vars.AWS_REGION }}'
           log_level: 'info'
       - name: Teardown SSM Parameter
@@ -63,13 +83,12 @@ jobs:
         with:
           command: 'teardown'
           stack_dir: 'examples/aws-ssm-parameter'
-          stack_env: 'dev'
+          stack_env: '${{ matrix.stack_env }}'
           env_vars: 'AWS_REGION=${{ vars.AWS_REGION }}'
           log_level: 'info'
 
   test-env-vars-multiline:
     name: "Test env_vars multi-line parsing (ubuntu-latest)"
-    needs: test-ubuntu-latest
     runs-on: ubuntu-latest
     env:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -86,7 +105,7 @@ jobs:
         with:
           command: 'build'
           stack_dir: 'examples/aws-ssm-parameter'
-          stack_env: 'dev'
+          stack_env: 'ci-env-vars-multiline'
           env_vars: |
             UNUSED_FIRST=first
             AWS_REGION=${{ vars.AWS_REGION }}
@@ -97,7 +116,7 @@ jobs:
         with:
           command: 'test'
           stack_dir: 'examples/aws-ssm-parameter'
-          stack_env: 'dev'
+          stack_env: 'ci-env-vars-multiline'
           env_vars: |
             UNUSED_FIRST=first
             AWS_REGION=${{ vars.AWS_REGION }}
@@ -109,245 +128,9 @@ jobs:
         with:
           command: 'teardown'
           stack_dir: 'examples/aws-ssm-parameter'
-          stack_env: 'dev'
+          stack_env: 'ci-env-vars-multiline'
           env_vars: |
             UNUSED_FIRST=first
             AWS_REGION=${{ vars.AWS_REGION }}
             UNUSED_LAST=last
-          log_level: 'info'
-
-  test-ubuntu-arm:
-    name: "Test (ubuntu-24.04-arm)"
-    needs: test-env-vars-multiline
-    runs-on: ubuntu-24.04-arm
-    env:
-      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
-    steps:
-      - uses: actions/checkout@v7
-      - name: Deploy SSM Parameter
-        uses: ./
-        with:
-          command: 'build'
-          stack_dir: 'examples/aws-ssm-parameter'
-          stack_env: 'dev'
-          env_vars: 'AWS_REGION=${{ vars.AWS_REGION }}'
-          log_level: 'info'
-      - name: Test SSM Parameter
-        uses: ./
-        with:
-          command: 'test'
-          stack_dir: 'examples/aws-ssm-parameter'
-          stack_env: 'dev'
-          env_vars: 'AWS_REGION=${{ vars.AWS_REGION }}'
-          log_level: 'info'
-      - name: Update Manifest - Update SSM Parameter Value
-        shell: bash
-        run: |
-          sed -i.bak 's/stackql-deploy-action-test-value/stackql-deploy-action-test-value-updated/' examples/aws-ssm-parameter/stackql_manifest.yml
-          rm -f examples/aws-ssm-parameter/stackql_manifest.yml.bak
-          echo "Updated manifest:"
-          cat examples/aws-ssm-parameter/stackql_manifest.yml
-      - name: Redeploy SSM Parameter with Updated Value
-        uses: ./
-        with:
-          command: 'build'
-          stack_dir: 'examples/aws-ssm-parameter'
-          stack_env: 'dev'
-          env_vars: 'AWS_REGION=${{ vars.AWS_REGION }}'
-          log_level: 'info'
-      - name: Test SSM Parameter (Post-Update)
-        uses: ./
-        with:
-          command: 'test'
-          stack_dir: 'examples/aws-ssm-parameter'
-          stack_env: 'dev'
-          env_vars: 'AWS_REGION=${{ vars.AWS_REGION }}'
-          log_level: 'info'
-      - name: Teardown SSM Parameter
-        if: always()
-        uses: ./
-        with:
-          command: 'teardown'
-          stack_dir: 'examples/aws-ssm-parameter'
-          stack_env: 'dev'
-          env_vars: 'AWS_REGION=${{ vars.AWS_REGION }}'
-          log_level: 'info'
-
-  test-macos-arm:
-    name: "Test (macos-latest)"
-    needs: test-ubuntu-arm
-    runs-on: macos-latest
-    env:
-      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
-    steps:
-      - uses: actions/checkout@v7
-      - name: Deploy SSM Parameter
-        uses: ./
-        with:
-          command: 'build'
-          stack_dir: 'examples/aws-ssm-parameter'
-          stack_env: 'dev'
-          env_vars: 'AWS_REGION=${{ vars.AWS_REGION }}'
-          log_level: 'info'
-      - name: Test SSM Parameter
-        uses: ./
-        with:
-          command: 'test'
-          stack_dir: 'examples/aws-ssm-parameter'
-          stack_env: 'dev'
-          env_vars: 'AWS_REGION=${{ vars.AWS_REGION }}'
-          log_level: 'info'
-      - name: Update Manifest - Update SSM Parameter Value
-        shell: bash
-        run: |
-          sed -i.bak 's/stackql-deploy-action-test-value/stackql-deploy-action-test-value-updated/' examples/aws-ssm-parameter/stackql_manifest.yml
-          rm -f examples/aws-ssm-parameter/stackql_manifest.yml.bak
-          echo "Updated manifest:"
-          cat examples/aws-ssm-parameter/stackql_manifest.yml
-      - name: Redeploy SSM Parameter with Updated Value
-        uses: ./
-        with:
-          command: 'build'
-          stack_dir: 'examples/aws-ssm-parameter'
-          stack_env: 'dev'
-          env_vars: 'AWS_REGION=${{ vars.AWS_REGION }}'
-          log_level: 'info'
-      - name: Test SSM Parameter (Post-Update)
-        uses: ./
-        with:
-          command: 'test'
-          stack_dir: 'examples/aws-ssm-parameter'
-          stack_env: 'dev'
-          env_vars: 'AWS_REGION=${{ vars.AWS_REGION }}'
-          log_level: 'info'
-      - name: Teardown SSM Parameter
-        if: always()
-        uses: ./
-        with:
-          command: 'teardown'
-          stack_dir: 'examples/aws-ssm-parameter'
-          stack_env: 'dev'
-          env_vars: 'AWS_REGION=${{ vars.AWS_REGION }}'
-          log_level: 'info'
-
-  test-macos-intel:
-    name: "Test (macos-26-intel)"
-    needs: test-macos-arm
-    runs-on: macos-26-intel
-    env:
-      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
-    steps:
-      - uses: actions/checkout@v7
-      - name: Deploy SSM Parameter
-        uses: ./
-        with:
-          command: 'build'
-          stack_dir: 'examples/aws-ssm-parameter'
-          stack_env: 'dev'
-          env_vars: 'AWS_REGION=${{ vars.AWS_REGION }}'
-          log_level: 'info'
-      - name: Test SSM Parameter
-        uses: ./
-        with:
-          command: 'test'
-          stack_dir: 'examples/aws-ssm-parameter'
-          stack_env: 'dev'
-          env_vars: 'AWS_REGION=${{ vars.AWS_REGION }}'
-          log_level: 'info'
-      - name: Update Manifest - Update SSM Parameter Value
-        shell: bash
-        run: |
-          sed -i.bak 's/stackql-deploy-action-test-value/stackql-deploy-action-test-value-updated/' examples/aws-ssm-parameter/stackql_manifest.yml
-          rm -f examples/aws-ssm-parameter/stackql_manifest.yml.bak
-          echo "Updated manifest:"
-          cat examples/aws-ssm-parameter/stackql_manifest.yml
-      - name: Redeploy SSM Parameter with Updated Value
-        uses: ./
-        with:
-          command: 'build'
-          stack_dir: 'examples/aws-ssm-parameter'
-          stack_env: 'dev'
-          env_vars: 'AWS_REGION=${{ vars.AWS_REGION }}'
-          log_level: 'info'
-      - name: Test SSM Parameter (Post-Update)
-        uses: ./
-        with:
-          command: 'test'
-          stack_dir: 'examples/aws-ssm-parameter'
-          stack_env: 'dev'
-          env_vars: 'AWS_REGION=${{ vars.AWS_REGION }}'
-          log_level: 'info'
-      - name: Teardown SSM Parameter
-        if: always()
-        uses: ./
-        with:
-          command: 'teardown'
-          stack_dir: 'examples/aws-ssm-parameter'
-          stack_env: 'dev'
-          env_vars: 'AWS_REGION=${{ vars.AWS_REGION }}'
-          log_level: 'info'
-
-  test-windows:
-    name: "Test (windows-latest)"
-    needs: test-macos-intel
-    runs-on: windows-latest
-    env:
-      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
-    steps:
-      - uses: actions/checkout@v7
-      - name: Deploy SSM Parameter
-        uses: ./
-        with:
-          command: 'build'
-          stack_dir: 'examples/aws-ssm-parameter'
-          stack_env: 'dev'
-          env_vars: 'AWS_REGION=${{ vars.AWS_REGION }}'
-          log_level: 'info'
-      - name: Test SSM Parameter
-        uses: ./
-        with:
-          command: 'test'
-          stack_dir: 'examples/aws-ssm-parameter'
-          stack_env: 'dev'
-          env_vars: 'AWS_REGION=${{ vars.AWS_REGION }}'
-          log_level: 'info'
-      - name: Update Manifest - Update SSM Parameter Value
-        shell: bash
-        run: |
-          sed -i.bak 's/stackql-deploy-action-test-value/stackql-deploy-action-test-value-updated/' examples/aws-ssm-parameter/stackql_manifest.yml
-          rm -f examples/aws-ssm-parameter/stackql_manifest.yml.bak
-          echo "Updated manifest:"
-          cat examples/aws-ssm-parameter/stackql_manifest.yml
-      - name: Redeploy SSM Parameter with Updated Value
-        uses: ./
-        with:
-          command: 'build'
-          stack_dir: 'examples/aws-ssm-parameter'
-          stack_env: 'dev'
-          env_vars: 'AWS_REGION=${{ vars.AWS_REGION }}'
-          log_level: 'info'
-      - name: Test SSM Parameter (Post-Update)
-        uses: ./
-        with:
-          command: 'test'
-          stack_dir: 'examples/aws-ssm-parameter'
-          stack_env: 'dev'
-          env_vars: 'AWS_REGION=${{ vars.AWS_REGION }}'
-          log_level: 'info'
-      - name: Teardown SSM Parameter
-        if: always()
-        uses: ./
-        with:
-          command: 'teardown'
-          stack_dir: 'examples/aws-ssm-parameter'
-          stack_env: 'dev'
-          env_vars: 'AWS_REGION=${{ vars.AWS_REGION }}'
           log_level: 'info'
