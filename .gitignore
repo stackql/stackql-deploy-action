@@ -2,3 +2,4 @@ stackql*
 .stackql/
 .env
 .claude
+/tmp
