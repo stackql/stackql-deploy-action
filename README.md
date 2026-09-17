@@ -1,4 +1,4 @@
-[![StackQL Deploy Actions Test](https://github.com/stackql/stackql-deploy-action/actions/workflows/stackql-deploy-actions-test.yml/badge.svg)](https://github.com/stackql/stackql-deploy-action/actions/workflows/stackql-deploy-actions-test.yml)
+[![StackQL Deploy Actions Test](https://github.com/stackql/stackql-deploy-action/actions/workflows/stackql-deploy-actions-test.yml/badge.svg?event=pull_request)](https://github.com/stackql/stackql-deploy-action/actions/workflows/stackql-deploy-actions-test.yml)
 [![StackQL](https://stackql.io/img/stackql-logo-bold.png)](https://github.com/stackql/stackql)
 
 # stackql-deploy
