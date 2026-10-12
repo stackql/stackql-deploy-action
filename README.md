@@ -6,6 +6,25 @@ Github Action to execute `stackql-deploy` to deploy or test a stack.  [`stackql-
 
 # Usage
 
+## Supported platforms
+
+The action downloads the latest prebuilt release for Linux, macOS, and Windows
+on x86_64 and ARM64. macOS uses the universal binary; no Rust toolchain is needed.
+Windows detects the native CPU even when Git Bash runs under x64 emulation.
+
+| Platform | Architecture | CI runner |
+|----------|--------------|-----------|
+| Linux | x86_64 | `ubuntu-latest` |
+| Linux | ARM64 | `ubuntu-24.04-arm` |
+| macOS | Apple Silicon | `macos-latest` |
+| macOS | Intel | `macos-26-intel` |
+| Windows | x86_64 | `windows-latest` |
+| Windows | ARM64 | `windows-11-arm` |
+
+CI checks installation, binary architecture, and reuse on each runner without
+cloud credentials. The AWS SSM workflow also tests deployment, updates, and
+teardown on each runner.
+
 ## Provider Authentication
 Authentication to StackQL providers is done via environment variables source from GitHub Actions Secrets.  To learn more about authentication, see the setup instructions for your provider or providers at the [StackQL Provider Registry Docs](https://stackql.io/registry).  
 

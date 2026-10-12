@@ -1,0 +1,69 @@
+name: Install Test
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  installer-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - run: python -m pip install PyYAML==6.0.3
+      - run: python -m unittest discover -s tests -v
+
+  install:
+    name: Install (${{ matrix.runner }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            binary_arch: x86-64
+          - runner: ubuntu-24.04-arm
+            binary_arch: aarch64
+          - runner: macos-latest
+            binary_arch: arm64
+          - runner: macos-26-intel
+            binary_arch: x86_64
+          - runner: windows-latest
+            binary_arch: x86-64
+          - runner: windows-11-arm
+            binary_arch: Aarch64|ARM64
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install and run info
+        uses: ./
+        with:
+          command: info
+      - name: Verify installed architecture and PATH
+        shell: bash
+        env:
+          EXPECTED_ARCH: ${{ matrix.binary_arch }}
+        run: |
+          binary=$(command -v stackql-deploy)
+          if [ "$RUNNER_OS" = Windows ]; then binary="${binary%.exe}.exe"; fi
+          file "$binary"
+          file -b "$binary" | grep -E "$EXPECTED_ARCH"
+          stackql-deploy --version
+          git hash-object "$binary" > "$RUNNER_TEMP/stackql-deploy.hash"
+      - name: Reuse installed binary
+        uses: ./
+        with:
+          command: info
+      - name: Verify binary is unchanged
+        shell: bash
+        run: |
+          binary=$(command -v stackql-deploy)
+          if [ "$RUNNER_OS" = Windows ]; then binary="${binary%.exe}.exe"; fi
+          git hash-object "$binary" | cmp - "$RUNNER_TEMP/stackql-deploy.hash"

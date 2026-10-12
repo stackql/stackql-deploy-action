@@ -51,46 +51,56 @@ runs:
         else
           OS="$(uname -s)"
           ARCH="$(uname -m)"
+          case "$OS" in
+            MINGW*|MSYS*|CYGWIN*|Windows_NT)
+              # The registry reports the native CPU even in an emulated x64 shell.
+              WINDOWS_ARCH=$(powershell.exe -NoProfile -NonInteractive -Command "(Get-ItemProperty -LiteralPath 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Environment' -Name PROCESSOR_ARCHITECTURE -ErrorAction Stop).PROCESSOR_ARCHITECTURE" 2>/dev/null || true)
+              WINDOWS_ARCH="${WINDOWS_ARCH//$'\r'/}"
+              ARCH="${WINDOWS_ARCH:-${PROCESSOR_ARCHITEW6432:-${PROCESSOR_ARCHITECTURE:-$ARCH}}}"
+              OS="Windows"
+              ;;
+          esac
+          case "$ARCH" in
+            x86_64|amd64|AMD64|x64|X64) ARCH="x86_64" ;;
+            aarch64|arm64|ARM64) ARCH="arm64" ;;
+          esac
           echo "Detected platform: ${OS}-${ARCH}"
 
-          if [ "$OS" = "Darwin" ]; then
-            # macOS: build from crates.io. Prebuilt macOS assets have had naming drift
-            # (universal vs arch-specific), so cargo install is the reliable path here.
-            echo "Installing stackql-deploy via cargo..."
-            cargo install stackql-deploy --locked
-            echo "${HOME}/.cargo/bin" >> "$GITHUB_PATH"
-            export PATH="${HOME}/.cargo/bin:${PATH}"
+          BASE_URL="https://github.com/stackql/stackql-deploy-rs/releases/latest/download"
+          BINARY="stackql-deploy"
+          case "${OS}-${ARCH}" in
+            Linux-x86_64|Linux-arm64)
+              ASSET="stackql-deploy-linux-${ARCH}.tar.gz" ;;
+            Darwin-x86_64|Darwin-arm64)
+              ASSET="stackql-deploy-macos-universal.tar.gz" ;;
+            Windows-x86_64|Windows-arm64)
+              ASSET="stackql-deploy-windows-${ARCH}.zip"
+              BINARY="stackql-deploy.exe"
+              ;;
+            *)
+              echo "Unsupported platform: ${OS}-${ARCH}" >&2
+              exit 1
+              ;;
+          esac
+          URL="${BASE_URL}/${ASSET}"
+          echo "Download URL: ${URL}"
+
+          if [ "$OS" = "Windows" ]; then
+            curl -fL -o stackql-deploy.zip "$URL"
+            unzip -o stackql-deploy.zip
+            rm -f stackql-deploy.zip
           else
-            echo "Installing stackql-deploy binary..."
-            BASE_URL="https://github.com/stackql/stackql-deploy-rs/releases/latest/download"
-            case "${OS}-${ARCH}" in
-              Linux-x86_64)   URL="${BASE_URL}/stackql-deploy-linux-x86_64.tar.gz" ;;
-              Linux-aarch64)  URL="${BASE_URL}/stackql-deploy-linux-arm64.tar.gz" ;;
-              MINGW*|MSYS*|CYGWIN*)
-                              URL="${BASE_URL}/stackql-deploy-windows-x86_64.zip" ;;
-              *)
-                echo "Unsupported platform: ${OS}-${ARCH}"
-                exit 1
-                ;;
-            esac
-            echo "Download URL: ${URL}"
-
-            if [[ "$OS" == MINGW* || "$OS" == MSYS* || "$OS" == CYGWIN* ]]; then
-              curl -fL -o stackql-deploy.zip "$URL"
-              unzip -o stackql-deploy.zip
-              rm -f stackql-deploy.zip
-            else
-              curl -fL "$URL" | tar -xz
-            fi
-
-            chmod +x ./stackql-deploy
-            echo "Binary details: $(file ./stackql-deploy)"
-            echo "${GITHUB_WORKSPACE}" >> "$GITHUB_PATH"
-            export PATH="${GITHUB_WORKSPACE}:${PATH}"
+            curl -fL "$URL" | tar -xz
           fi
 
+          chmod +x "./${BINARY}"
+          echo "Binary details: $(file "./${BINARY}")"
+          echo "${GITHUB_WORKSPACE}" >> "$GITHUB_PATH"
+          PATH="$(pwd):${PATH}"
+          export PATH
+
           echo "stackql-deploy installed:"
-          stackql-deploy info
+          "./${BINARY}" info
         fi
 
     - name: Run stackql-deploy
