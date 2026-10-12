@@ -32,6 +32,8 @@ jobs:
             stack_env: ci-macos-intel
           - runner: windows-latest
             stack_env: ci-windows-amd64
+          - runner: windows-11-arm
+            stack_env: ci-windows-arm64
     env:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
