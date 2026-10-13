@@ -1,5 +1,21 @@
-[![StackQL Deploy Actions Test](https://github.com/stackql/stackql-deploy-action/actions/workflows/stackql-deploy-actions-test.yml/badge.svg?event=pull_request)](https://github.com/stackql/stackql-deploy-action/actions/workflows/stackql-deploy-actions-test.yml)
-[![StackQL](https://stackql.io/img/stackql-logo-bold.png)](https://github.com/stackql/stackql)
+[stars]: https://img.shields.io/github/stars/stackql/stackql?style=flat-square "GitHub Stars"
+[logo]: https://stackql.io/img/stackql-logo-bold.png "stackql logo"
+[stackql]: https://github.com/stackql/stackql
+[homepage]: https://stackql.io/
+[downloads]: https://img.shields.io/github/downloads/stackql/stackql/total?label=github%20downloads
+
+<div align="center">
+
+[![logo]][homepage]  
+
+[![Marketplace](https://img.shields.io/badge/Marketplace-stackql--deploy--action-blue?logo=github)](https://github.com/marketplace/actions/stackql-deploy-action)
+[![Release](https://img.shields.io/github/v/release/stackql/stackql-deploy-action)](https://github.com/stackql/stackql-deploy-action/releases)
+[![CI](https://github.com/stackql/stackql-deploy-action/actions/workflows/stackql-deploy-actions-test.yml/badge.svg)](https://github.com/stackql/setup-stackql-mcp/actions/workflows/stackql-deploy-actions-test.yml)
+[![License](https://img.shields.io/github/license/stackql/stackql-deploy-action)](LICENSE)
+![downloads]
+[![stars]][stackql]
+
+</div>
 
 # stackql-deploy
 Github Action to execute `stackql-deploy` to deploy or test a stack.  [`stackql-deploy`](https://github.com/stackql/stackql-deploy) is a declarative, state-file-less IaC framework, based upon [`stackql`](https://github.com/stackql/stackql) queries.

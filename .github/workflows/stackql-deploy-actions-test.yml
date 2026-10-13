@@ -4,6 +4,15 @@ on:
   pull_request:
     branches:
       - main
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+      - 'LICENSE*'
+      - 'NOTICE*'
+      - '.gitignore'
+      - '.github/ISSUE_TEMPLATE/**'
+      - '.github/PULL_REQUEST_TEMPLATE/**'
+      - '.github/CODEOWNERS'
   workflow_dispatch:
 
 # Each job deploys its own SSM parameter: stack_env is part of the parameter name

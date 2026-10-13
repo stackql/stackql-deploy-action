@@ -3,8 +3,26 @@ name: Install Test
 on:
   pull_request:
     branches: [main]
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+      - 'LICENSE*'
+      - 'NOTICE*'
+      - '.gitignore'
+      - '.github/ISSUE_TEMPLATE/**'
+      - '.github/PULL_REQUEST_TEMPLATE/**'
+      - '.github/CODEOWNERS'
   push:
     branches: [main]
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+      - 'LICENSE*'
+      - 'NOTICE*'
+      - '.gitignore'
+      - '.github/ISSUE_TEMPLATE/**'
+      - '.github/PULL_REQUEST_TEMPLATE/**'
+      - '.github/CODEOWNERS'
   workflow_dispatch:
 
 permissions:
