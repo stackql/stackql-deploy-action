@@ -32,6 +32,11 @@ real `stackql-deploy` binary.
 
 ## CI checks
 
+Automatic CI skips changes limited to Markdown files, `docs/`, `LICENSE*`,
+`NOTICE*`, `.gitignore`, issue and pull request templates, or `.github/CODEOWNERS`.
+Changes that also touch action code, scripts, tests, examples, or workflows still
+run CI. Manual workflow runs remain available.
+
 [Install Test](./.github/workflows/install-test.yml) runs the Python tests and
 checks real binary installation, architecture, and reuse on Linux, macOS, and
 Windows for x86_64 and ARM64. It runs on pull requests and pushes to `main`, and
