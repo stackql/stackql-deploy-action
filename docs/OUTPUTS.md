@@ -52,7 +52,7 @@ The output file contains a JSON object with keys that may vary depending on your
 ```yaml
 - name: Deploy Stack
   id: deploy
-  uses: stackql/stackql-deploy-action@main
+  uses: stackql/stackql-deploy-action@v2
   with:
     command: 'build'
     stack_dir: './my-stack'
@@ -102,7 +102,7 @@ jobs:
     steps:
       - name: Deploy
         id: deploy
-        uses: stackql/stackql-deploy-action@main
+        uses: stackql/stackql-deploy-action@v2
         with:
           output_file: 'outputs.json'
           # ... other parameters
@@ -185,7 +185,7 @@ jobs:
           # Add your post-deployment logic here
 
       - name: Upload deployment outputs as artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: deployment-outputs
           path: deployment-outputs.json # same value as output_file above
@@ -197,7 +197,7 @@ jobs:
     if: success()
     steps:
       - name: Download deployment outputs
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: deployment-outputs
 
